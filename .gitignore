@@ -23,3 +23,6 @@ out/*.png
 
 # Office lock files
 ~$*
+
+# Generated RL live page (rebuild with: python -m dms.rl.live_page)
+out/*.html

@@ -1,0 +1,652 @@
+<title>B1 Evacuation Learner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<style>
+/* Layout: an evacuation-plan sheet. Control strip, then the two floor plans
+   (navigation graph drawn over the cells)
+   side by side as drafting panels, then the agent ledger beside the
+   convergence chart. Colour carries meaning: safety green = exits / safe,
+   amber→rust = far from an exit, red = locked. */
+:root {
+  --paper: #f2f4f1;
+  --sheet: #fbfcfa;
+  --ink: #1b2830;
+  --muted: #5b6970;
+  --rule: #cfd7d3;
+  --wall: #22313a;
+  --floor: #e4e9e5;
+  --furniture: #a8b3b0;
+  --void: #d6d0de;
+  --door: #c9a45a;
+  --stair: #7f97a8;
+  --explored: #b9c6cc;
+  --graph: #33424b;
+  --exit: #0b8a4b;
+  --locked: #c2412d;
+  --near: #19a05f;
+  --mid: #e7c34a;
+  --far: #c0462e;
+  --chip-ok: #dff1e6;
+  --chip-ok-fg: #0a6b3a;
+  --chip-warn: #f7ecd0;
+  --chip-warn-fg: #7a5a0c;
+  --chip-idle: #e7ebe9;
+  --chip-idle-fg: #4b585e;
+  --focus: #2a63d4;
+  --font-display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #10171b; --sheet: #151e23; --ink: #dbe4e6; --muted: #92a1a6; --rule: #2a373d;
+    --wall: #c9d6da; --floor: #1e292e; --furniture: #4a5a60; --void: #2c2836; --door: #b8934c;
+    --stair: #5d7b8f; --explored: #3a4a52; --graph: #e6eef0; --exit: #2fbf72; --locked: #e0634d; --near: #27b56d; --mid: #d8b13d; --far: #d0583c;
+    --chip-ok: #143a26; --chip-ok-fg: #7fe0a6; --chip-warn: #3a3015; --chip-warn-fg: #e9c86a;
+    --chip-idle: #222d32; --chip-idle-fg: #a3b1b5; --focus: #7aa5ff; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #10171b; --sheet: #151e23; --ink: #dbe4e6; --muted: #92a1a6; --rule: #2a373d;
+  --wall: #c9d6da; --floor: #1e292e; --furniture: #4a5a60; --void: #2c2836; --door: #b8934c;
+  --stair: #5d7b8f; --explored: #3a4a52; --graph: #e6eef0; --exit: #2fbf72; --locked: #e0634d; --near: #27b56d; --mid: #d8b13d; --far: #d0583c;
+  --chip-ok: #143a26; --chip-ok-fg: #7fe0a6; --chip-warn: #3a3015; --chip-warn-fg: #e9c86a;
+  --chip-idle: #222d32; --chip-idle-fg: #a3b1b5; --focus: #7aa5ff; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--paper); color: var(--ink);
+  font: 400 14px/1.5 var(--font-body);
+  padding: 20px 16px 40px;
+}
+.wrap { max-width: 1360px; margin: 0 auto; display: grid; gap: 18px; }
+
+header { display: grid; gap: 6px; }
+.eyebrow {
+  font: 500 11px/1 var(--font-data); letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+}
+h1 { font: 600 28px/1.1 var(--font-display); margin: 0; text-wrap: balance; letter-spacing: -.01em; }
+.lede { margin: 0; max-width: 78ch; color: var(--muted); }
+.lede b { color: var(--ink); font-weight: 500; }
+
+.controls {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px;
+  padding: 10px 12px; background: var(--sheet); border: 1px solid var(--rule); border-radius: 6px;
+}
+.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 5px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; }
+.seg button + button { border-left: 1px solid var(--rule); }
+button {
+  font: 500 13px/1 var(--font-body); color: var(--ink); background: var(--paper);
+  border: 1px solid var(--rule); border-radius: 5px; padding: 8px 12px; cursor: pointer;
+}
+button:hover { border-color: var(--muted); }
+button[aria-pressed="true"] { background: var(--ink); color: var(--sheet); }
+button.primary { background: var(--exit); color: #fff; border-color: transparent; min-width: 86px; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+label.ctl { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+label.ctl input[type=range] { width: 130px; accent-color: var(--exit); }
+label.ctl input[type=checkbox] { accent-color: var(--exit); }
+.speedval { font: 500 12px var(--font-data); color: var(--ink); min-width: 9ch; font-variant-numeric: tabular-nums; }
+.spacer { flex: 1 1 auto; }
+.stats { display: flex; gap: 16px; flex-wrap: wrap; font: 400 12px var(--font-data); color: var(--muted); font-variant-numeric: tabular-nums; }
+.stats b { color: var(--ink); font-weight: 500; }
+
+.plans { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.plan { background: var(--sheet); border: 1px solid var(--rule); border-radius: 6px; padding: 10px 10px 8px; min-width: 0; }
+.plan-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.plan-head h2 { font: 600 16px/1 var(--font-display); margin: 0; }
+.plan-head span { font: 400 11px var(--font-data); color: var(--muted); }
+.plan canvas { display: block; width: 100%; height: auto; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; font-size: 12px; color: var(--muted); }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -2px; margin-right: 5px; }
+.ramp { display: inline-flex; align-items: center; gap: 6px; }
+.ramp span.bar { width: 120px; height: 10px; border-radius: 2px; background: linear-gradient(90deg, var(--near), var(--mid), var(--far)); }
+
+.lower { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+td.route { font: 400 12px var(--font-data); color: var(--muted); }
+.panel { background: var(--sheet); border: 1px solid var(--rule); border-radius: 6px; padding: 12px; min-width: 0; }
+.panel h3 { font: 600 15px/1 var(--font-display); margin: 0 0 4px; }
+.panel p.sub { margin: 0 0 10px; font-size: 12px; color: var(--muted); }
+.tablewrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+th { font: 500 11px var(--font-data); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+td.num, th.num { text-align: right; font-family: var(--font-data); font-size: 12.5px; }
+td .sw { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; color: #fff; font: 500 11px var(--font-data); margin-right: 8px; vertical-align: middle; }
+td .rm { font-weight: 500; }
+td .nm { color: var(--muted); font-size: 12px; margin-left: 6px; }
+.chip { display: inline-block; padding: 3px 8px; border-radius: 999px; font: 500 11.5px var(--font-body); }
+.chip.ok { background: var(--chip-ok); color: var(--chip-ok-fg); }
+.chip.warn { background: var(--chip-warn); color: var(--chip-warn-fg); }
+.chip.idle { background: var(--chip-idle); color: var(--chip-idle-fg); }
+#chart { display: block; width: 100%; height: 260px; }
+
+@media (max-width: 900px) {
+  .plans, .lower { grid-template-columns: minmax(0, 1fr); }
+  h1 { font-size: 23px; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Building B1 · Q-learning on the navigation graph · grid walker on 0.5 m cells</div>
+    <h1>Ten evacuees learning their way out</h1>
+    <p class="lede">The agents decide on the <b>graph</b>: in each room, door or corridor piece they pick which
+      neighbouring node to head for. A <b>grid walker</b> then walks them there cell by cell, using only the cells of
+      those two nodes, so they leave rooms through doorways and step around furniture. The reward is
+      <b>−seconds actually walked</b>. Each node is coloured by its learned time to an exit (<b>−max Q</b>) once a real
+      route from it is known. All ten share one Q-table. The first floor has no exits, so those agents must learn to
+      take a stair.</p>
+  </header>
+
+  <div class="controls" role="toolbar" aria-label="Simulation controls">
+    <div class="seg" role="group" aria-label="Mode">
+      <button id="modeTrain" aria-pressed="true">Train</button>
+      <button id="modeTest" aria-pressed="false">Test</button>
+    </div>
+    <button id="play" class="primary">Pause</button>
+    <label class="ctl" for="speed">Speed
+      <input id="speed" type="range" min="0" max="6" step="1" value="3">
+      <span class="speedval" id="speedVal"></span>
+    </label>
+    <button id="reset">Reset learning</button>
+    <label class="ctl" for="showHeat"><input id="showHeat" type="checkbox" checked> Value map</label>
+    <label class="ctl" for="showGraph"><input id="showGraph" type="checkbox" checked> Graph</label>
+    <label class="ctl" for="showRoutes"><input id="showRoutes" type="checkbox" checked> Learned routes</label>
+    <div class="spacer"></div>
+    <div class="stats" aria-live="polite">
+      <span>episodes <b id="stEp">0</b></span>
+      <span>decisions <b id="stDec">0</b></span>
+      <span>nodes known <b id="stKnown">0%</b></span>
+      <span>best route <b id="stOpt">0/10</b></span>
+    </div>
+  </div>
+
+  <div class="plans">
+    <section class="plan"><div class="plan-head"><h2>Ground floor (GF)</h2><span>5 exits · X-SE locked</span></div><canvas id="cGF"></canvas></section>
+    <section class="plan"><div class="plan-head"><h2>First floor (FF)</h2><span>no exits · 3 stairs down</span></div><canvas id="cFF"></canvas></section>
+  </div>
+
+  <div class="legend" aria-label="Legend">
+    <span class="ramp">0 s <span class="bar"></span> 60 s to exit</span>
+    <span><i style="background:var(--explored)"></i>visited, no route known yet</span>
+    <span><i style="background:var(--exit)"></i>exit</span>
+    <span><i style="background:var(--locked)"></i>locked exit</span>
+    <span><i style="background:var(--stair)"></i>stairwell</span>
+    <span><i style="background:var(--door)"></i>door</span>
+    <span><i style="background:var(--furniture)"></i>furniture</span>
+    <span>· graph node &nbsp; ● agent &nbsp; ○ spawn &nbsp; ◎ node it is heading for &nbsp; — learned route</span>
+  </div>
+
+  <div class="lower">
+    <section class="panel">
+      <h3>Agents</h3>
+      <p class="sub" id="ledgerSub"></p>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Agent</th><th>Floor</th><th class="num">Episodes</th><th class="num" id="thLast">Last</th>
+          <th class="num">Best graph</th><th class="num">Cell optimum</th><th>Learned route</th><th>Status</th></tr></thead>
+        <tbody id="ledger"></tbody>
+      </table></div>
+    </section>
+    <section class="panel">
+      <h3>Convergence</h3>
+      <p class="sub">Episode time ÷ best possible graph-route time, per agent (log scale). X axis: that agent's
+        episode number. 1× means the agent now takes the best route the graph allows.</p>
+      <canvas id="chart"></canvas>
+    </section>
+  </div>
+</div>
+
+<script>
+"use strict";
+const D = "__DATA__";
+
+// ------------------------------------------------------------------ data
+function decode(b64, T) {
+  const bin = atob(b64), u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  return new T(u8.buffer);
+}
+const NC = D.nCells, NN = D.nNodes, DEG = D.maxDeg, ROWS = D.rows, COLS = D.cols;
+const CFLOOR = decode(D.cellFloor, Uint8Array), CR = decode(D.cellR, Int16Array), CC = decode(D.cellC, Int16Array);
+const NODE_OF = decode(D.nodeOf, Int32Array), POS = decode(D.posInNode, Int32Array);
+const NEIGH = decode(D.neighbours, Int32Array), TERM = decode(D.terminal, Uint8Array);
+const LEG_OFF = decode(D.legOffset, Int32Array), LEG_VERT = decode(D.legVertical, Uint8Array);
+const LEG_T = decode(D.legTime, Float32Array), LEG_NEXT = decode(D.legNext, Int32Array), LEG_ARR = decode(D.legArrival, Int32Array);
+const STAIR_NEXT = decode(D.stairNext, Int32Array), STAIR_COST = decode(D.stairCost, Float32Array);
+const NODES = D.nodes;
+const FLOORS = D.floors.map(f => ({ id: f.id, cat: decode(f.cat, Uint8Array), labels: f.labels }));
+const NODE_FLOOR = new Uint8Array(NN), NODE_X = new Float32Array(NN), NODE_Y = new Float32Array(NN);
+{
+  const cnt = new Uint32Array(NN);
+  for (let s = 0; s < NC; s++) { const u = NODE_OF[s]; NODE_FLOOR[u] = CFLOOR[s]; NODE_X[u] += CC[s] + 0.5; NODE_Y[u] += ROWS - 1 - CR[s] + 0.5; cnt[u]++; }
+  for (let u = 0; u < NN; u++) { NODE_X[u] /= cnt[u]; NODE_Y[u] /= cnt[u]; }
+}
+const AGENT_COLORS = ["#2f6fdf", "#d9480f", "#7048e8", "#0c8599", "#e64980", "#8a6d00", "#c2255c", "#1864ab", "#5f3dc4", "#495057"];
+const ALPHA = 0.3;          // averaging: the same node can cost different times from different cells
+const MAX_HOPS = 200;
+const HEAT_MAX_S = 60;
+const SPEEDS_TRAIN = [1, 2, 4, 10, 40, 200, 2000];   // cells walked per agent per frame
+const SPEEDS_TEST = [0.5, 1, 2, 4, 8, 16, 32];       // × real time
+const SQ2 = Math.SQRT2;
+
+// ------------------------------------------------------------------ walker (precomputed legs)
+function leg(u, k, s) {          // walk from cell s (in node u) into neighbour slot k
+  const e = u * DEG + k;
+  if (LEG_VERT[e]) { const s2 = STAIR_NEXT[s]; return s2 === s ? null : { t: STAIR_COST[s], arr: s2 }; }
+  const o = LEG_OFF[e]; if (o < 0) return null;
+  return { t: LEG_T[o + POS[s]], arr: LEG_ARR[o + POS[s]] };
+}
+function legPath(u, k, s) {      // every cell walked on that leg
+  const e = u * DEG + k;
+  if (LEG_VERT[e]) return [s, STAIR_NEXT[s]];
+  const o = LEG_OFF[e], path = [s];
+  let cur = s;
+  for (let guard = 0; NODE_OF[cur] === u && guard < 4000; guard++) { cur = LEG_NEXT[o + POS[cur]]; path.push(cur); }
+  return path;
+}
+function stepCost(a, b) {        // time between two consecutive cells of a walked path
+  if (CFLOOR[a] !== CFLOOR[b]) return STAIR_COST[a];
+  return (CR[a] !== CR[b] && CC[a] !== CC[b] ? SQ2 : 1) * D.h / D.v0;
+}
+
+// ------------------------------------------------------------------ rng
+let seed = 7;
+function rand() { // mulberry32
+  seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+  let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+  t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+  return ((t ^ t >>> 14) >>> 0) / 4294967296;
+}
+
+// ------------------------------------------------------------------ Q-learning over graph nodes
+let Q, anchored, visitedNode, knownCount, totalDecisions, totalEpisodes;
+const agents = D.agents.map((a, i) => ({ ...a, i, color: AGENT_COLORS[i] }));
+
+function resetLearning() {
+  seed = 7;
+  Q = new Float32Array(NN * DEG);
+  anchored = new Uint8Array(NN); visitedNode = new Uint8Array(NN);
+  knownCount = 0; totalDecisions = 0; totalEpisodes = 0;
+  for (let u = 0; u < NN; u++) for (let k = 0; k < DEG; k++) {
+    const i = u * DEG + k;
+    if (NEIGH[i] < 0) Q[i] = -Infinity;          // no such neighbour
+    else if (TERM[u]) Q[i] = 0;                  // at an exit: nothing left to pay
+    else Q[i] = -rand() * 1e-6;                  // optimistic: ~0 > every true value
+  }
+  for (const ag of agents) respawn(ag, true);
+  heatDirty = true;
+}
+function respawn(ag, full) {
+  if (full) { ag.episodes = 0; ag.history = []; ag.last = null; ag.best = null; ag.greedy = null; }
+  ag.s = ag.start; ag.t = 0; ag.hops = 0; ag.trail = [ag.start]; ag.path = null; ag.pathIdx = 0; ag.target = -1;
+  visitedNode[NODE_OF[ag.start]] = 1;
+}
+function maxQ(u) { let m = -Infinity; for (let k = 0; k < DEG; k++) if (Q[u * DEG + k] > m) m = Q[u * DEG + k]; return m; }
+function argmaxQ(u) { let m = -Infinity, b = 0; for (let k = 0; k < DEG; k++) if (Q[u * DEG + k] > m) { m = Q[u * DEG + k]; b = k; } return b; }
+function epsilon(ag) { return Math.max(0.03, 0.5 * Math.pow(0.97, ag.episodes)); }
+
+// One graph decision: choose next node, learn from the walker's real time, queue the walk.
+function decide(ag) {
+  const s = ag.s, u = NODE_OF[s];
+  let k;
+  if (rand() < epsilon(ag)) {
+    let n = 0; for (let j = 0; j < DEG; j++) if (NEIGH[u * DEG + j] >= 0) n++;
+    let pick = Math.floor(rand() * n);
+    for (k = 0; k < DEG; k++) if (NEIGH[u * DEG + k] >= 0 && pick-- === 0) break;
+  } else k = argmaxQ(u);
+  const v = NEIGH[u * DEG + k], L = leg(u, k, s), i = u * DEG + k;
+  if (!L) { Q[i] = -Infinity; return; }
+  const done = TERM[v] === 1;
+  // Q(u,k) <- Q(u,k) + alpha * [ -walk_time + max_k' Q(v,k') - Q(u,k) ]
+  const target = done ? -L.t : -L.t + maxQ(v);
+  Q[i] += ALPHA * (target - Q[i]);
+  if (done || anchored[v]) { if (!anchored[u]) knownCount++; anchored[u] = 1; }
+  if (!visitedNode[v]) visitedNode[v] = 1;
+  ag.t += L.t; ag.hops++; totalDecisions++;
+  ag.path = legPath(u, k, s); ag.pathIdx = 0; ag.target = v; ag.pendingDone = done; ag.arrival = L.arr;
+}
+function finishEpisode(ag, done) {
+  ag.episodes++; totalEpisodes++;
+  ag.history.push(done ? Math.min(ag.t / ag.graphOpt, 20) : 20);
+  if (done) { ag.last = ag.t; ag.best = ag.best === null ? ag.t : Math.min(ag.best, ag.t); } else ag.last = null;
+  respawn(ag, false);
+}
+function advanceTrain(ag, budget) {
+  while (budget > 0) {
+    if (!ag.path) { decide(ag); if (!ag.path) return; }
+    const remaining = ag.path.length - 1 - ag.pathIdx, step = Math.min(budget, remaining);
+    for (let j = 1; j <= step; j++) ag.trail.push(ag.path[ag.pathIdx + j]);
+    if (ag.trail.length > 500) ag.trail.splice(0, ag.trail.length - 500);
+    ag.pathIdx += step; budget -= Math.max(1, step);
+    if (ag.pathIdx >= ag.path.length - 1) {          // arrived in the target node
+      ag.s = ag.arrival; ag.path = null;
+      if (ag.pendingDone) finishEpisode(ag, true);
+      else if (ag.hops >= MAX_HOPS) finishEpisode(ag, false);
+    }
+  }
+}
+
+// greedy rollout over the graph (no exploration, no learning)
+const stamp = new Int32Array(NN); let stampId = 0;
+function greedyRollout(start, withCells) {
+  stampId++;
+  let s = start, t = 0; const nodes = [NODE_OF[s]], cells = [s]; stamp[NODE_OF[s]] = stampId;
+  for (let h = 0; h < MAX_HOPS; h++) {
+    const u = NODE_OF[s];
+    if (TERM[u]) return { nodes, cells, t, ok: true };
+    const k = argmaxQ(u), v = NEIGH[u * DEG + k];
+    if (v < 0 || Q[u * DEG + k] === -Infinity) break;
+    const L = leg(u, k, s); if (!L) break;
+    if (withCells) { const p = legPath(u, k, s); for (let j = 1; j < p.length; j++) cells.push(p[j]); }
+    t += L.t; s = L.arr; nodes.push(v);
+    if (stamp[v] === stampId) return { nodes, cells, t, ok: false };
+    stamp[v] = stampId;
+  }
+  return { nodes, cells, t, ok: TERM[NODE_OF[s]] === 1 };
+}
+function routeLabel(nodes) {
+  const parts = [];
+  for (const u of nodes) {
+    const n = NODES[u];
+    if (n.kind < 2 || (n.kind === 2 && n.name.includes("-fd-"))) continue;
+    if (parts[parts.length - 1] !== n.name) parts.push(n.name);
+  }
+  return parts.join(" › ");
+}
+function agentStatus(ag) {
+  const g = ag.greedy;
+  if (!g || !g.ok) return ag.episodes ? ["warn", "Exploring"] : ["idle", "Searching"];
+  const ex = g.t / ag.graphOpt - 1;
+  return ex <= 0.01 ? ["ok", "Best route"] : ["warn", `Escapes, +${(ex * 100).toFixed(0)}%`];
+}
+
+// ------------------------------------------------------------------ test mode
+let testClock = 0;
+function startTest() {
+  testClock = 0;
+  for (const ag of agents) {
+    const g = greedyRollout(ag.start, true), times = [0];
+    for (let k = 1; k < g.cells.length; k++) times.push(times[k - 1] + stepCost(g.cells[k - 1], g.cells[k]));
+    ag.test = { ...g, times, total: times[times.length - 1] };
+  }
+}
+function testPose(ag) {
+  const { cells, times } = ag.test;
+  if (testClock >= times[times.length - 1]) return { s: cells[cells.length - 1], s2: null, f: 0, k: cells.length - 1, arrived: true };
+  let k = 1; while (k < times.length && times[k] <= testClock) k++;
+  return { s: cells[k - 1], s2: cells[k], f: (testClock - times[k - 1]) / (times[k] - times[k - 1] || 1), k: k - 1, arrived: false };
+}
+
+// ------------------------------------------------------------------ drawing
+const canvases = [document.getElementById("cGF"), document.getElementById("cFF")];
+const ctxs = canvases.map(c => c.getContext("2d"));
+let colors = {}, baseImgs = [], heatImgs = [], heatDirty = true, lut = [], exploredRGB = [0, 0, 0];
+const hexRGB = h => { const x = parseInt(h.slice(1), 16); return [x >> 16 & 255, x >> 8 & 255, x & 255]; };
+
+function readColors() {
+  const cs = getComputedStyle(document.documentElement), v = n => cs.getPropertyValue(n).trim();
+  colors = { sheet: v("--sheet"), muted: v("--muted"), rule: v("--rule"), wall: v("--wall"), floor: v("--floor"),
+    furniture: v("--furniture"), void: v("--void"), door: v("--door"), stair: v("--stair"), explored: v("--explored"),
+    graph: v("--graph"), exit: v("--exit"), locked: v("--locked"), near: v("--near"), mid: v("--mid"), far: v("--far") };
+  const [n, m, f] = [hexRGB(colors.near), hexRGB(colors.mid), hexRGB(colors.far)];
+  exploredRGB = hexRGB(colors.explored);
+  lut = [];
+  for (let i = 0; i < 256; i++) {
+    const t = i / 255, [p, q, w] = t < 0.5 ? [n, m, t / 0.5] : [m, f, (t - 0.5) / 0.5];
+    lut.push([0, 1, 2].map(j => Math.round(p[j] + (q[j] - p[j]) * w)));
+  }
+  buildBase(); heatDirty = true;
+}
+function buildBase() {
+  const pal = [colors.sheet, colors.wall, colors.floor, colors.furniture, colors.door, colors.exit, colors.stair,
+    colors.void, colors.wall, colors.locked].map(hexRGB), sheet = hexRGB(colors.sheet);
+  baseImgs = FLOORS.map(fl => {
+    const c = document.createElement("canvas"); c.width = COLS; c.height = ROWS;
+    const g = c.getContext("2d"), img = g.createImageData(COLS, ROWS);
+    for (let r = 0; r < ROWS; r++) for (let col = 0; col < COLS; col++) {
+      const k = fl.cat[r * COLS + col];
+      let px = pal[k];
+      if (k === 6 && (r + col) % 2) px = px.map(x => Math.round(x * 0.88 + 30 * 0.12));
+      if (k === 8) px = px.map((x, j) => Math.round(x * 0.5 + sheet[j] * 0.5));
+      const o = ((ROWS - 1 - r) * COLS + col) * 4;
+      img.data[o] = px[0]; img.data[o + 1] = px[1]; img.data[o + 2] = px[2]; img.data[o + 3] = 255;
+    }
+    g.putImageData(img, 0, 0); return c;
+  });
+  heatImgs = FLOORS.map(() => { const c = document.createElement("canvas"); c.width = COLS; c.height = ROWS; return c; });
+}
+function buildHeat() {
+  const imgs = heatImgs.map(c => c.getContext("2d").createImageData(COLS, ROWS));
+  const nodeRGB = new Array(NN);
+  for (let u = 0; u < NN; u++) {
+    if (TERM[u] || !visitedNode[u]) { nodeRGB[u] = null; continue; }
+    if (!anchored[u]) { nodeRGB[u] = exploredRGB; continue; }
+    const t = Math.max(0, Math.min(1, -maxQ(u) / HEAT_MAX_S)); nodeRGB[u] = lut[Math.round(t * 255)];
+  }
+  for (let s = 0; s < NC; s++) {
+    const px = nodeRGB[NODE_OF[s]]; if (!px) continue;
+    const o = ((ROWS - 1 - CR[s]) * COLS + CC[s]) * 4, d = imgs[CFLOOR[s]].data;
+    d[o] = px[0]; d[o + 1] = px[1]; d[o + 2] = px[2]; d[o + 3] = 215;
+  }
+  heatImgs.forEach((c, f) => c.getContext("2d").putImageData(imgs[f], 0, 0));
+  heatDirty = false;
+}
+function sizeCanvases() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  for (const c of canvases) {
+    const w = c.clientWidth || 600;
+    c.width = Math.round(w * dpr); c.height = Math.round(w * ROWS / COLS * dpr); c.style.height = (w * ROWS / COLS) + "px";
+  }
+  const ch = document.getElementById("chart");
+  ch.width = Math.round(ch.clientWidth * dpr); ch.height = Math.round(260 * dpr);
+}
+const cellXY = (s, sc) => [(CC[s] + 0.5) * sc, (ROWS - 1 - CR[s] + 0.5) * sc];
+
+function polyline(g, cells, f, sc, color, lw, dash, alpha = 1) {
+  g.strokeStyle = color; g.lineWidth = lw; g.setLineDash(dash); g.globalAlpha = alpha; g.lineJoin = "round";
+  let open = false; g.beginPath();
+  for (const s of cells) {
+    if (CFLOOR[s] !== f) { open = false; continue; }
+    const [x, y] = cellXY(s, sc);
+    if (!open) { g.moveTo(x, y); open = true; } else g.lineTo(x, y);
+  }
+  g.stroke(); g.setLineDash([]); g.globalAlpha = 1;
+}
+function drawAgent(g, ag, x, y, sc, ring) {
+  const rad = Math.max(4, sc * 1.05);
+  g.fillStyle = ag.color; g.strokeStyle = colors.sheet; g.lineWidth = Math.max(1.5, sc * 0.3);
+  g.beginPath(); g.arc(x, y, rad, 0, Math.PI * 2); g.fill(); g.stroke();
+  if (ring) { g.setLineDash([3, 3]); g.strokeStyle = ag.color; g.beginPath(); g.arc(x, y, rad * 2, 0, Math.PI * 2); g.stroke(); g.setLineDash([]); }
+  g.fillStyle = "#fff"; g.font = `500 ${Math.max(8, rad * 1.1)}px monospace`; g.textAlign = "center"; g.textBaseline = "middle";
+  g.fillText(String(ag.i + 1), x, y + 0.5);
+}
+
+function drawPlans() {
+  const showHeat = document.getElementById("showHeat").checked;
+  const showGraph = document.getElementById("showGraph").checked;
+  const showRoutes = document.getElementById("showRoutes").checked;
+  if (showHeat && heatDirty) buildHeat();
+  canvases.forEach((cv, f) => {
+    const g = ctxs[f], sc = cv.width / COLS;
+    g.imageSmoothingEnabled = false;
+    g.clearRect(0, 0, cv.width, cv.height);
+    g.drawImage(baseImgs[f], 0, 0, cv.width, cv.height);
+    if (showHeat) g.drawImage(heatImgs[f], 0, 0, cv.width, cv.height);
+
+    g.font = `500 ${Math.max(9, sc * 1.6)}px "IBM Plex Mono", monospace`;
+    g.textAlign = "center"; g.textBaseline = "middle"; g.fillStyle = colors.muted; g.globalAlpha = 0.7;
+    for (const l of FLOORS[f].labels) g.fillText(l.id, (l.c + 0.5) * sc, (ROWS - 1 - l.r + 0.5) * sc);
+    g.globalAlpha = 1;
+
+    if (showGraph) {                                   // the navigation graph itself
+      g.strokeStyle = colors.graph; g.lineWidth = Math.max(1, sc * 0.15); g.globalAlpha = 0.55; g.beginPath();
+      for (let u = 0; u < NN; u++) for (let k = 0; k < DEG; k++) {
+        const v = NEIGH[u * DEG + k];
+        if (v > u && NODE_FLOOR[u] === f && NODE_FLOOR[v] === f) { g.moveTo(NODE_X[u] * sc, NODE_Y[u] * sc); g.lineTo(NODE_X[v] * sc, NODE_Y[v] * sc); }
+      }
+      g.stroke(); g.globalAlpha = 0.8; g.fillStyle = colors.graph;
+      for (let u = 0; u < NN; u++) if (NODE_FLOOR[u] === f) { g.beginPath(); g.arc(NODE_X[u] * sc, NODE_Y[u] * sc, Math.max(1.5, sc * 0.35), 0, Math.PI * 2); g.fill(); }
+      g.globalAlpha = 1;
+    }
+
+    const lw = Math.max(1.5, sc * 0.35);
+    if (mode === "train") {
+      if (showRoutes) for (const ag of agents) if (ag.greedyCells) polyline(g, ag.greedyCells, f, sc, ag.color, lw, ag.greedy.ok ? [] : [sc, sc]);
+      for (const ag of agents) polyline(g, ag.trail, f, sc, ag.color, Math.max(1, sc * 0.18), [], 0.35);
+      for (const ag of agents) if (ag.target >= 0 && NODE_FLOOR[ag.target] === f) {   // node it decided to go to
+        g.strokeStyle = ag.color; g.lineWidth = Math.max(1.5, sc * 0.3);
+        g.beginPath(); g.arc(NODE_X[ag.target] * sc, NODE_Y[ag.target] * sc, sc * 1.6, 0, Math.PI * 2); g.stroke();
+      }
+    } else for (const ag of agents) {
+      const p = testPose(ag); polyline(g, ag.test.cells.slice(0, p.k + 1), f, sc, ag.color, lw, []);
+    }
+    for (const ag of agents) if (CFLOOR[ag.start] === f) {
+      const [x, y] = cellXY(ag.start, sc);
+      g.strokeStyle = ag.color; g.lineWidth = Math.max(1.5, sc * 0.3);
+      g.beginPath(); g.arc(x, y, sc * 1.3, 0, Math.PI * 2); g.stroke();
+    }
+    for (const ag of agents) {
+      if (mode === "train") {
+        const s = ag.path ? ag.path[ag.pathIdx] : ag.s;
+        if (CFLOOR[s] === f) { const [x, y] = cellXY(s, sc); drawAgent(g, ag, x, y, sc, false); }
+      } else {
+        const p = testPose(ag);
+        if (p.s2 !== null && CFLOOR[p.s2] !== CFLOOR[p.s]) {
+          const s = p.f < 0.5 ? p.s : p.s2;
+          if (CFLOOR[s] === f) { const [x, y] = cellXY(s, sc); drawAgent(g, ag, x, y, sc, true); }
+        } else if (CFLOOR[p.s] === f) {
+          let [x, y] = cellXY(p.s, sc);
+          if (p.s2 !== null) { const [x2, y2] = cellXY(p.s2, sc); x += (x2 - x) * p.f; y += (y2 - y) * p.f; }
+          drawAgent(g, ag, x, y, sc, false);
+        }
+      }
+    }
+  });
+}
+
+// ------------------------------------------------------------------ chart
+function niceStep(x) { const p = Math.pow(10, Math.floor(Math.log10(Math.max(1, x)))); for (const m of [1, 2, 5, 10]) if (m * p >= x) return m * p; return 10 * p; }
+function drawChart() {
+  const cv = document.getElementById("chart"), g = cv.getContext("2d");
+  const dpr = cv.width / (cv.clientWidth || 1), W = cv.width, H = cv.height;
+  g.clearRect(0, 0, W, H);
+  const padL = 44 * dpr, padR = 12 * dpr, padT = 10 * dpr, padB = 28 * dpr;
+  const maxEp = Math.max(10, ...agents.map(a => a.history.length)), yMax = Math.log10(20);
+  const X = e => padL + (W - padL - padR) * e / maxEp;
+  const Y = r => padT + (H - padT - padB) * (1 - Math.log10(Math.max(1, r)) / yMax);
+  g.font = `${11 * dpr}px "IBM Plex Mono", monospace`; g.fillStyle = colors.muted; g.strokeStyle = colors.rule; g.lineWidth = dpr;
+  g.textAlign = "right"; g.textBaseline = "middle";
+  for (const r of [1, 1.5, 2, 5, 10, 20]) { const y = Y(r); g.beginPath(); g.moveTo(padL, y); g.lineTo(W - padR, y); g.stroke(); g.fillText(r + "×", padL - 6 * dpr, y); }
+  g.textAlign = "center"; g.textBaseline = "top";
+  const step = niceStep(maxEp / 5);
+  for (let e = 0; e <= maxEp; e += step) g.fillText(String(e), X(e), H - padB + 6 * dpr);
+  g.strokeStyle = colors.exit; g.lineWidth = 1.5 * dpr; g.beginPath(); g.moveTo(padL, Y(1)); g.lineTo(W - padR, Y(1)); g.stroke();
+  for (const ag of agents) {
+    if (!ag.history.length) continue;
+    g.strokeStyle = ag.color; g.lineWidth = 1.6 * dpr; g.globalAlpha = 0.9; g.beginPath();
+    ag.history.forEach((r, e) => { const x = X(e + 1), y = Y(r); e ? g.lineTo(x, y) : g.moveTo(x, y); });
+    g.stroke(); g.globalAlpha = 1;
+    const e = ag.history.length; g.fillStyle = ag.color;
+    g.beginPath(); g.arc(X(e), Y(ag.history[e - 1]), 3 * dpr, 0, Math.PI * 2); g.fill();
+  }
+}
+
+// ------------------------------------------------------------------ ledger
+const fmt = t => t === null || t === undefined ? "—" : t.toFixed(1) + " s";
+function renderLedger() {
+  let nOpt = 0;
+  const rows = agents.map(ag => {
+    let status, last, route;
+    if (mode === "train") {
+      const [cls, txt] = agentStatus(ag); if (cls === "ok") nOpt++;
+      status = `<span class="chip ${cls}">${txt}</span>`; last = fmt(ag.last);
+      route = ag.greedy && ag.greedy.ok ? routeLabel(ag.greedy.nodes) : "—";
+    } else {
+      const p = testPose(ag);
+      route = ag.test.ok ? routeLabel(ag.test.nodes) : "—";
+      if (!ag.test.ok) status = `<span class="chip warn">No route learned yet</span>`;
+      else if (p.arrived) { status = `<span class="chip ok">Out in ${ag.test.total.toFixed(1)} s</span>`; nOpt += ag.test.total <= ag.graphOpt * 1.01; }
+      else status = `<span class="chip idle">${CFLOOR[p.s] === 1 ? "On first floor" : "On ground floor"}</span>`;
+      last = ag.test.ok ? fmt(Math.min(testClock, ag.test.total)) : "—";
+    }
+    return `<tr><td><span class="sw" style="background:${ag.color}">${ag.i + 1}</span><span class="rm">${ag.room}</span><span class="nm">${ag.name}</span></td>
+      <td>${ag.floor}</td><td class="num">${ag.episodes}</td><td class="num">${last}</td><td class="num">${fmt(ag.graphOpt)}</td>
+      <td class="num">${fmt(ag.cellOpt)}</td><td class="route">${route}</td><td>${status}</td></tr>`;
+  });
+  document.getElementById("ledger").innerHTML = rows.join("");
+  document.getElementById("stEp").textContent = totalEpisodes.toLocaleString();
+  document.getElementById("stDec").textContent = totalDecisions.toLocaleString();
+  document.getElementById("stKnown").textContent = (100 * knownCount / (NN - TERM.reduce((a, b) => a + b, 0))).toFixed(0) + "%";
+  document.getElementById("stOpt").textContent = `${nOpt}/10`;
+}
+
+// ------------------------------------------------------------------ loop + controls
+let mode = "train", playing = true, frame = 0;
+if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) playing = false;
+const speedIndex = () => +document.getElementById("speed").value;
+function updateSpeedLabel() {
+  const i = speedIndex();
+  document.getElementById("speedVal").textContent = mode === "train" ? `${SPEEDS_TRAIN[i]} cells/f` : `${SPEEDS_TEST[i]}× real`;
+}
+function refreshGreedy() {
+  const routes = document.getElementById("showRoutes").checked;
+  for (const ag of agents) { ag.greedy = greedyRollout(ag.start, routes); ag.greedyCells = routes ? ag.greedy.cells : null; }
+}
+let lastT = performance.now();
+function tick(now) {
+  const dt = Math.min(0.1, (now - lastT) / 1000); lastT = now;
+  if (playing) {
+    if (mode === "train") {
+      const k = SPEEDS_TRAIN[speedIndex()];
+      for (const ag of agents) advanceTrain(ag, k);
+      if (frame % 6 === 0) heatDirty = true;
+      if (frame % 10 === 0) refreshGreedy();
+    } else testClock += dt * SPEEDS_TEST[speedIndex()];
+  }
+  drawPlans();
+  if (frame % 8 === 0) { renderLedger(); drawChart(); }
+  frame++;
+  requestAnimationFrame(tick);
+}
+function setMode(m) {
+  mode = m;
+  document.getElementById("modeTrain").setAttribute("aria-pressed", m === "train");
+  document.getElementById("modeTest").setAttribute("aria-pressed", m === "test");
+  document.getElementById("thLast").textContent = m === "train" ? "Last" : "Clock";
+  document.getElementById("ledgerSub").textContent = m === "train"
+    ? "Training: Last is each agent's most recent finished episode, including exploratory detours. Best graph is the fastest any graph policy can do with this walker; cell optimum is the fastest possible at all."
+    : "Test: learning is off. Each agent follows its learned best node from its spawn while the walker moves it in real time (stairs take about 11 s).";
+  if (m === "test") startTest();
+  document.getElementById("speed").value = m === "train" ? 3 : 3;
+  updateSpeedLabel(); playing = true; syncPlay(); renderLedger();
+}
+function syncPlay() { document.getElementById("play").textContent = playing ? "Pause" : (mode === "test" ? "Play" : "Train"); }
+document.getElementById("modeTrain").onclick = () => setMode("train");
+document.getElementById("modeTest").onclick = () => setMode("test");
+document.getElementById("play").onclick = () => {
+  if (mode === "test" && agents.every(a => testPose(a).arrived)) testClock = 0;
+  playing = !playing; syncPlay();
+};
+document.getElementById("reset").onclick = () => { resetLearning(); refreshGreedy(); if (mode === "test") startTest(); renderLedger(); drawChart(); };
+document.getElementById("speed").oninput = updateSpeedLabel;
+document.getElementById("showHeat").onchange = () => { heatDirty = true; };
+document.getElementById("showRoutes").onchange = refreshGreedy;
+
+new ResizeObserver(() => { sizeCanvases(); drawChart(); }).observe(document.querySelector(".plans"));
+const mq = window.matchMedia("(prefers-color-scheme: dark)");
+mq.addEventListener && mq.addEventListener("change", readColors);
+new MutationObserver(readColors).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+resetLearning();
+readColors();
+sizeCanvases();
+setMode("train");
+if (!playing) syncPlay();
+refreshGreedy(); renderLedger(); drawChart();
+requestAnimationFrame(tick);
+</script>
