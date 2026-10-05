@@ -1,0 +1,25 @@
+# Byte-compiled / optimized / cache files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+
+# Environment and IDE configs
+.venv/
+venv/
+ENV/
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Heavy simulation output artifacts, video, and image renders
+out/*.gif
+out/*.mp4
+out/*.npz
+out/*.png
+*.log
+
+# Office lock files
+~$*

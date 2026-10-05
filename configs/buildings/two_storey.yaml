@@ -1,0 +1,626 @@
+# Two-storey building + site — authoritative geometry (PROMPT_01_two_storey_building.md §3).
+# All coordinates are metres. GF/FF local origin = SW outer corner of the building footprint.
+# Code must never hardcode any of these numbers (PROMPT_01 §2.1, §9) — this file is the
+# single source of truth; dms/geometry/loader.py only interprets it.
+
+site:
+  name: "PAEC / NUST AI Solution Lab — two-storey building prototype site"
+  width_m: 160.0
+  height_m: 140.0
+  assembly_points:
+    - {id: AP-N, x: 80.0, y: 125.0, diameter_m: 15.0}
+    - {id: AP-S, x: 80.0, y: 15.0, diameter_m: 15.0}
+    - {id: AP-W, x: 15.0, y: 70.0, diameter_m: 15.0}
+    - {id: AP-E, x: 145.0, y: 70.0, diameter_m: 15.0}
+  obstacles:
+    - {id: outbuilding, x0: 20.0, y0: 110.0, x1: 30.0, y1: 118.0, layer: static}
+    # Parking layer (§3.5): a row of 2x4.5 m cars in front of X-S and X-E, off by default.
+    - {id: car-S-1, x0: 78.0, y0: 40.0, x1: 80.0, y1: 44.5, layer: parking, active_by_default: false}
+    - {id: car-S-2, x0: 80.5, y0: 40.0, x1: 82.5, y1: 44.5, layer: parking, active_by_default: false}
+    - {id: car-E-1, x0: 115.0, y0: 68.0, x1: 119.5, y1: 70.0, layer: parking, active_by_default: false}
+    - {id: car-E-2, x0: 115.0, y0: 70.5, x1: 119.5, y1: 72.5, layer: parking, active_by_default: false}
+  hazards:
+    - {id: H-4, x: 140.0, y: 40.0, z: 0.0, species: H2S, mw: 34.08, purpose: "outdoor tank, dispersion toward the building with wind"}
+
+buildings:
+  - id: B1
+    origin: {x: 50.0, y: 50.0}
+    rotation_deg: 0.0
+    wall_thickness_m: 0.2
+    floor_to_floor_m: 4.0
+    # Every room with exactly one door (graph degree 1 on the L2 navigation
+    # graph) — spec §7.2: "the exception [to single-failure redundancy] is
+    # rooms whose only door is the failed element... designed_dead_ends list
+    # (G-08, F-10, F-13, FN-stub, single-door offices)". Computed via
+    # dms/graph/redundancy.py and verified exact (not just a superset) by
+    # tests/test_redundancy.py. FN-stub is deliberately NOT in this list:
+    # it has two connections (an opening to ring-N and a door to F-07) and
+    # so is not a single point of failure — its "dead end" property is a
+    # different one (no exit of its own on FF; see its own `notes` field
+    # under FF's spaces, and the M4 edge-case walker check).
+    designed_dead_ends: [
+      F-01, F-04, F-08, F-09, F-10, F-13,
+      G-01, G-03, G-04, G-07, G-08, G-09, G-10, G-12, G-13, G-14, G-17, G-18, G-20,
+    ]
+    window_rule: {width_m: 1.5, spacing_m: 3.0, sill_height_m: 0.9, perm_closed: 0.02, perm_open: 0.5}
+
+    # Named exit sets for the Eikonal field targets (PROMPT_01 §6.3). "all"
+    # (every currently-available exit) needs no entry here — dms/fields/eikonal.py
+    # treats that name specially, and falls back to treating any other
+    # unlisted name as a literal single exit id.
+    exit_sets:
+      all_but_S: [X-N, X-W, X-E, X-NW, X-SE]
+      north: [X-N]
+      south: [X-S]
+      west: [X-W, X-NW]
+      east: [X-E, X-SE]
+
+    floors:
+      # ================================================================= GF
+      - id: GF
+        z: 0.0
+        footprint: {x0: 0.0, y0: 0.0, x1: 60.0, y1: 40.0}
+
+        spaces:
+          # --- south band ---
+          - id: G-01
+            name: Workshop
+            kind: room
+            rect: {x0: 0.0, y0: 0.0, x1: 12.0, y1: 10.0}
+            doors:
+              - {id: G-01-d1, wall: "y=10", lo: 9.0, hi: 10.5}
+            obstacles:
+              - {id: G-01-wb1, x0: 2.0, y0: 2.0, x1: 6.0, y1: 3.2, layer: furniture}
+              - {id: G-01-wb2, x0: 2.0, y0: 6.0, x1: 6.0, y1: 7.2, layer: furniture}
+
+          - id: G-03
+            name: Office
+            kind: room
+            rect: {x0: 12.0, y0: 0.0, x1: 18.5, y1: 10.0}
+            doors:
+              - {id: G-03-d1, wall: "y=10", lo: 15.0, hi: 16.0}
+
+          - id: G-04
+            name: Office
+            kind: room
+            rect: {x0: 18.5, y0: 0.0, x1: 25.0, y1: 10.0}
+            doors:
+              - {id: G-04-d1, wall: "y=10", lo: 21.0, hi: 22.0}
+
+          - id: LOBBY
+            name: Main lobby
+            kind: room
+            rect: {x0: 25.0, y0: 0.0, x1: 35.0, y1: 10.0}
+            notes: "FF above is a VOID (atrium)"
+            openings:
+              - {id: LOBBY-op-ringS, wall: "y=10", lo: 28.0, hi: 32.0}
+
+          - id: G-05
+            name: Cafeteria
+            kind: room
+            rect: {x0: 35.0, y0: 0.0, x1: 47.0, y1: 10.0}
+            notes: "through-room: bypasses the lobby opening"
+            doors:
+              - {id: G-05-d1, wall: "y=10", lo: 37.0, hi: 38.5}
+              - {id: G-05-d2, wall: "y=10", lo: 44.0, hi: 45.5}
+              - {id: G-05-d3, wall: "x=35", lo: 3.0, hi: 4.5}
+            obstacles:
+              - {id: G-05-table1, x0: 38.0, y0: 1.5, x1: 40.0, y1: 2.7, layer: furniture}
+              - {id: G-05-table2, x0: 41.0, y0: 1.5, x1: 43.0, y1: 2.7, layer: furniture}
+              - {id: G-05-table3, x0: 38.0, y0: 5.0, x1: 43.0, y1: 6.2, layer: furniture}
+
+          - id: G-06
+            name: Chemical / gas store
+            kind: room
+            rect: {x0: 47.0, y0: 0.0, x1: 60.0, y1: 10.0}
+            doors:
+              - {id: G-06-d1, wall: "y=10", lo: 49.5, hi: 51.0}
+
+          # --- west column ---
+          - id: G-07
+            name: Office
+            kind: room
+            rect: {x0: 0.0, y0: 10.0, x1: 8.0, y1: 18.5}
+            doors:
+              - {id: G-07-d1, wall: "x=8", lo: 14.0, hi: 15.0}
+
+          - id: W-stub
+            name: West exit corridor
+            kind: stub
+            rect: {x0: 0.0, y0: 18.5, x1: 8.0, y1: 21.5}
+            openings:
+              - {id: W-stub-op-ringW, wall: "x=8", lo: 18.5, hi: 21.5}
+
+          - id: G-08
+            name: Toilets
+            kind: room
+            rect: {x0: 0.0, y0: 21.5, x1: 8.0, y1: 24.0}
+            notes: "designed dead-end"
+            doors:
+              - {id: G-08-d1, wall: "x=8", lo: 22.2, hi: 23.2}
+
+          - id: ST-W
+            name: West stair (enclosed)
+            kind: stair
+            rect: {x0: 0.0, y0: 24.0, x1: 8.0, y1: 30.0}
+            notes: "FF -> outside without entering the GF corridor"
+
+          # --- east column ---
+          - id: ST-E
+            name: East stair (enclosed)
+            kind: stair
+            rect: {x0: 52.0, y0: 10.0, x1: 60.0, y1: 15.0}
+            notes: "discharges into the GF ring"
+
+          - id: G-09
+            name: Office
+            kind: room
+            rect: {x0: 52.0, y0: 15.0, x1: 60.0, y1: 18.5}
+            doors:
+              - {id: G-09-d1, wall: "x=52", lo: 16.5, hi: 17.5}
+
+          - id: E-stub
+            name: East exit corridor
+            kind: stub
+            rect: {x0: 52.0, y0: 18.5, x1: 60.0, y1: 21.5}
+            openings:
+              - {id: E-stub-op-ringE, wall: "x=52", lo: 18.5, hi: 21.5}
+
+          - id: G-10
+            name: Server room
+            kind: room
+            rect: {x0: 52.0, y0: 21.5, x1: 60.0, y1: 30.0}
+            doors:
+              - {id: G-10-d1, wall: "x=52", lo: 25.0, hi: 26.0}
+
+          # --- north band ---
+          - id: G-11
+            name: Main control room (C2-MCR)
+            kind: room
+            rect: {x0: 0.0, y0: 30.0, x1: 14.0, y1: 40.0}
+            doors:
+              - {id: G-11-d1, wall: "y=30", lo: 9.0, hi: 10.5}
+              - {id: G-11-d2, wall: "y=30", lo: 12.0, hi: 13.5}
+            obstacles:
+              - {id: G-11-console1, x0: 2.0, y0: 33.0, x1: 4.0, y1: 34.2, layer: furniture}
+              - {id: G-11-console2, x0: 5.0, y0: 33.0, x1: 7.0, y1: 34.2, layer: furniture}
+              - {id: G-11-console3, x0: 10.0, y0: 33.0, x1: 12.0, y1: 34.2, layer: furniture}
+
+          - id: G-12
+            name: Meeting room
+            kind: room
+            rect: {x0: 14.0, y0: 30.0, x1: 22.0, y1: 40.0}
+            doors:
+              - {id: G-12-d1, wall: "y=30", lo: 17.0, hi: 18.0}
+
+          - id: G-13
+            name: Office
+            kind: room
+            rect: {x0: 22.0, y0: 30.0, x1: 28.5, y1: 40.0}
+            notes: "opens onto the N-stub, not the ring"
+            doors:
+              - {id: G-13-d1, wall: "x=28.5", lo: 33.0, hi: 34.0}
+
+          - id: N-stub
+            name: North exit corridor
+            kind: stub
+            rect: {x0: 28.5, y0: 30.0, x1: 31.5, y1: 40.0}
+            openings:
+              - {id: N-stub-op-ringN, wall: "y=30", lo: 28.5, hi: 31.5}
+
+          - id: G-14
+            name: Records / archive
+            kind: room
+            rect: {x0: 31.5, y0: 30.0, x1: 40.0, y1: 40.0}
+            doors:
+              - {id: G-14-d1, wall: "y=30", lo: 35.0, hi: 36.0}
+
+          - id: G-15
+            name: Laboratory
+            kind: room
+            rect: {x0: 40.0, y0: 30.0, x1: 60.0, y1: 40.0}
+            doors:
+              - {id: G-15-d1, wall: "y=30", lo: 43.0, hi: 44.5}
+              - {id: G-15-d2, wall: "y=30", lo: 49.0, hi: 50.5}
+            obstacles:
+              - {id: G-15-bench1, x0: 51.0, y0: 32.0, x1: 53.0, y1: 33.0, layer: furniture}
+              - {id: G-15-bench2, x0: 56.0, y0: 32.0, x1: 58.0, y1: 33.0, layer: furniture}
+              - {id: G-15-bench3, x0: 51.0, y0: 38.0, x1: 53.0, y1: 39.0, layer: furniture}
+
+          # --- ring corridor + spine (shared loop) ---
+          - id: ring-S
+            name: "Ring corridor - south leg"
+            kind: corridor
+            rect: {x0: 11.0, y0: 10.0, x1: 49.0, y1: 13.0}
+
+          - id: ring-N
+            name: "Ring corridor - north leg"
+            kind: corridor
+            rect: {x0: 11.0, y0: 27.0, x1: 49.0, y1: 30.0}
+
+          - id: ring-W
+            name: "Ring corridor - west leg"
+            kind: corridor
+            rect: {x0: 8.0, y0: 10.0, x1: 11.0, y1: 30.0}
+
+          - id: ring-E
+            name: "Ring corridor - east leg"
+            kind: corridor
+            rect: {x0: 49.0, y0: 10.0, x1: 52.0, y1: 30.0}
+
+          - id: spine
+            name: "Spine corridor"
+            kind: corridor
+            rect: {x0: 28.5, y0: 13.0, x1: 31.5, y1: 27.0}
+
+          # --- core rooms ---
+          - id: G-16
+            name: Open-plan office
+            kind: room
+            rect: {x0: 11.0, y0: 13.0, x1: 20.0, y1: 27.0}
+            notes: "3-door through-room"
+            doors:
+              - {id: G-16-d1, wall: "y=13", lo: 14.0, hi: 15.5}
+              - {id: G-16-d2, wall: "x=11", lo: 20.0, hi: 21.5}
+              - {id: G-16-d3, wall: "y=27", lo: 16.0, hi: 17.5}
+            obstacles:
+              - {id: G-16-desks1, x0: 13.0, y0: 15.5, x1: 19.0, y1: 16.5, layer: furniture}
+              - {id: G-16-desks2, x0: 13.0, y0: 18.3, x1: 19.0, y1: 19.3, layer: furniture}
+              - {id: G-16-desks3, x0: 13.0, y0: 22.5, x1: 19.0, y1: 23.5, layer: furniture}
+
+          - id: G-17
+            name: Office
+            kind: room
+            rect: {x0: 20.0, y0: 13.0, x1: 28.5, y1: 20.0}
+            doors:
+              - {id: G-17-d1, wall: "y=13", lo: 23.0, hi: 24.0}
+
+          - id: G-18
+            name: Office
+            kind: room
+            rect: {x0: 20.0, y0: 20.0, x1: 28.5, y1: 27.0}
+            notes: "onto spine"
+            doors:
+              - {id: G-18-d1, wall: "x=28.5", lo: 23.0, hi: 24.0}
+
+          - id: ST-C
+            name: Central stair (open, main)
+            kind: stair
+            rect: {x0: 31.5, y0: 13.0, x1: 37.5, y1: 19.0}
+            notes: "no fire doors; gas can travel through it"
+            openings:
+              - {id: ST-C-op-ringS, wall: "y=13", lo: 33.0, hi: 35.0}
+              - {id: ST-C-op-spine, wall: "x=31.5", lo: 15.0, hi: 17.0}
+
+          - id: G-20
+            name: Store
+            kind: room
+            rect: {x0: 31.5, y0: 19.0, x1: 37.5, y1: 27.0}
+            doors:
+              - {id: G-20-d1, wall: "x=31.5", lo: 22.0, hi: 23.0}
+
+          - id: G-19
+            name: Training room
+            kind: room
+            rect: {x0: 37.5, y0: 13.0, x1: 49.0, y1: 27.0}
+            notes: "3-door through-room"
+            doors:
+              - {id: G-19-d1, wall: "y=13", lo: 40.0, hi: 41.5}
+              - {id: G-19-d2, wall: "x=49", lo: 20.0, hi: 21.5}
+              - {id: G-19-d3, wall: "y=27", lo: 45.0, hi: 46.5}
+
+        corridor_openings:
+          - {id: GF-op-ringS-ringW, wall: "x=11", lo: 10.0, hi: 13.0}
+          - {id: GF-op-ringS-ringE, wall: "x=49", lo: 10.0, hi: 13.0}
+          - {id: GF-op-ringN-ringW, wall: "x=11", lo: 27.0, hi: 30.0}
+          - {id: GF-op-ringN-ringE, wall: "x=49", lo: 27.0, hi: 30.0}
+          - {id: GF-op-ringS-spine, wall: "y=13", lo: 28.5, hi: 31.5}
+          - {id: GF-op-ringN-spine, wall: "y=27", lo: 28.5, hi: 31.5}
+
+        exits:
+          - {id: X-S, space: LOBBY, wall: "y=0", lo: 28.8, hi: 31.2, kind: main}
+          - {id: X-N, space: N-stub, wall: "y=40", lo: 29.1, hi: 30.9, kind: secondary}
+          - {id: X-W, space: W-stub, wall: "x=0", lo: 19.4, hi: 20.6, kind: secondary}
+          - {id: X-E, space: E-stub, wall: "x=60", lo: 19.4, hi: 20.6, kind: secondary}
+          - {id: X-NW, space: ST-W, wall: "x=0", lo: 26.0, hi: 27.5, kind: stair_discharge}
+          - {id: X-SE, space: G-06, wall: "x=60", lo: 3.0, hi: 4.5, kind: service, default_state: UNAVAILABLE}
+
+        hazards:
+          - {id: H-1, space: G-06, x: 54.0, y: 5.0, z: 1.0, purpose: "indoor leak on the south facade near X-SE"}
+          - {id: H-2, space: G-15, x: 55.0, y: 36.0, z: 1.0, purpose: "indoor leak in the NE, threatening X-N / X-E approaches"}
+
+        clutter:
+          - {id: clutter-ringS-1, space: ring-S, x0: 20.0, y0: 11.0, x1: 23.0, y1: 12.0, narrows_to_width_m: 1.5}
+          - {id: clutter-spine-1, space: spine, x0: 29.5, y0: 18.0, x1: 30.5, y1: 20.0, narrows_to_width_m: 1.0}
+          - {id: clutter-ringN-1, space: ring-N, x0: 33.0, y0: 28.0, x1: 36.0, y1: 29.0, narrows_to_width_m: 1.5}
+          - {id: clutter-ringW-1, space: ring-W, x0: 8.5, y0: 15.0, x1: 10.5, y1: 16.0, narrows_to_width_m: 1.0}
+          - {id: clutter-ringE-1, space: ring-E, x0: 50.0, y0: 22.0, x1: 51.5, y1: 23.0, narrows_to_width_m: 1.0}
+
+      # ================================================================= FF
+      - id: FF
+        z: 4.0
+        footprint: {x0: 0.0, y0: 0.0, x1: 60.0, y1: 40.0}
+
+        spaces:
+          # --- south band ---
+          - id: F-01
+            name: Office
+            kind: room
+            rect: {x0: 0.0, y0: 0.0, x1: 12.0, y1: 10.0}
+            doors:
+              - {id: F-01-d1, wall: "y=10", lo: 9.0, hi: 10.5}
+
+          - id: F-02
+            name: Open office
+            kind: room
+            rect: {x0: 12.0, y0: 0.0, x1: 25.0, y1: 10.0}
+            doors:
+              - {id: F-02-d1, wall: "y=10", lo: 14.0, hi: 15.5}
+              - {id: F-02-d2, wall: "y=10", lo: 22.0, hi: 23.5}
+
+          - id: VOID
+            name: Atrium over lobby
+            kind: void
+            rect: {x0: 25.0, y0: 0.0, x1: 35.0, y1: 10.0}
+            notes: "balustrade along y=10: x25-35; not walkable, gas-open; couples GF<->FF vertically"
+
+          - id: F-03
+            name: Office pool
+            kind: room
+            rect: {x0: 35.0, y0: 0.0, x1: 47.0, y1: 10.0}
+            doors:
+              - {id: F-03-d1, wall: "y=10", lo: 37.0, hi: 38.5}
+              - {id: F-03-d2, wall: "y=10", lo: 44.0, hi: 45.5}
+
+          - id: F-04
+            name: Office
+            kind: room
+            rect: {x0: 47.0, y0: 0.0, x1: 60.0, y1: 10.0}
+            doors:
+              - {id: F-04-d1, wall: "y=10", lo: 49.5, hi: 51.0}
+
+          # --- west column ---
+          - id: F-05
+            name: Office
+            kind: room
+            rect: {x0: 0.0, y0: 10.0, x1: 8.0, y1: 24.0}
+            doors:
+              - {id: F-05-d1, wall: "x=8", lo: 14.0, hi: 15.0}
+              - {id: F-05-d2, wall: "x=8", lo: 21.0, hi: 22.0}
+
+          - id: ST-W
+            name: West stair
+            kind: stair
+            rect: {x0: 0.0, y0: 24.0, x1: 8.0, y1: 30.0}
+
+          # --- east column ---
+          - id: ST-E
+            name: East stair
+            kind: stair
+            rect: {x0: 52.0, y0: 10.0, x1: 60.0, y1: 15.0}
+
+          - id: F-06
+            name: Office
+            kind: room
+            rect: {x0: 52.0, y0: 15.0, x1: 60.0, y1: 30.0}
+            doors:
+              - {id: F-06-d1, wall: "x=52", lo: 17.0, hi: 18.0}
+              - {id: F-06-d2, wall: "x=52", lo: 27.0, hi: 28.0}
+
+          # --- north band ---
+          - id: F-07
+            name: Conference hall
+            kind: room
+            rect: {x0: 0.0, y0: 30.0, x1: 28.5, y1: 40.0}
+            notes: "large, 3 doors; seating rows"
+            doors:
+              - {id: F-07-d1, wall: "y=30", lo: 9.0, hi: 10.5}
+              - {id: F-07-d2, wall: "y=30", lo: 20.0, hi: 21.5}
+              - {id: F-07-d3, wall: "x=28.5", lo: 35.0, hi: 36.5}
+            obstacles:
+              - {id: F-07-seats1, x0: 2.0, y0: 33.0, x1: 8.0, y1: 34.0, layer: furniture}
+              - {id: F-07-seats2, x0: 12.0, y0: 33.0, x1: 18.0, y1: 34.0, layer: furniture}
+              - {id: F-07-seats3, x0: 2.0, y0: 37.0, x1: 8.0, y1: 38.0, layer: furniture}
+
+          - id: FN-stub
+            name: Lounge corridor
+            kind: stub
+            rect: {x0: 28.5, y0: 30.0, x1: 31.5, y1: 40.0}
+            notes: "designed dead-end corridor (no exit on FF): trap test"
+            openings:
+              - {id: FN-stub-op-ringN, wall: "y=30", lo: 28.5, hi: 31.5}
+
+          - id: F-08
+            name: Office
+            kind: room
+            rect: {x0: 31.5, y0: 30.0, x1: 45.0, y1: 40.0}
+            doors:
+              - {id: F-08-d1, wall: "y=30", lo: 36.0, hi: 37.0}
+
+          - id: F-09
+            name: Library
+            kind: room
+            rect: {x0: 45.0, y0: 30.0, x1: 60.0, y1: 40.0}
+            doors:
+              - {id: F-09-d1, wall: "y=30", lo: 47.0, hi: 48.5}
+
+          # --- ring corridor + spine (same positions as GF) ---
+          - id: ring-S
+            name: "Ring corridor - south leg"
+            kind: corridor
+            rect: {x0: 11.0, y0: 10.0, x1: 49.0, y1: 13.0}
+
+          - id: ring-N
+            name: "Ring corridor - north leg"
+            kind: corridor
+            rect: {x0: 11.0, y0: 27.0, x1: 49.0, y1: 30.0}
+
+          - id: ring-W
+            name: "Ring corridor - west leg"
+            kind: corridor
+            rect: {x0: 8.0, y0: 10.0, x1: 11.0, y1: 30.0}
+
+          - id: ring-E
+            name: "Ring corridor - east leg"
+            kind: corridor
+            rect: {x0: 49.0, y0: 10.0, x1: 52.0, y1: 30.0}
+
+          - id: spine
+            name: "Spine corridor"
+            kind: corridor
+            rect: {x0: 28.5, y0: 13.0, x1: 31.5, y1: 27.0}
+
+          # --- core rooms ---
+          - id: F-10
+            name: Archive
+            kind: room
+            rect: {x0: 11.0, y0: 13.0, x1: 28.5, y1: 27.0}
+            notes: "large single-door dead-end room"
+            doors:
+              - {id: F-10-d1, wall: "y=13", lo: 19.0, hi: 20.0}
+
+          - id: ST-C
+            name: Central stair
+            kind: stair
+            rect: {x0: 31.5, y0: 13.0, x1: 37.5, y1: 19.0}
+            notes: "same openings as GF"
+            openings:
+              - {id: ST-C-FF-op-ringS, wall: "y=13", lo: 33.0, hi: 35.0}
+              - {id: ST-C-FF-op-spine, wall: "x=31.5", lo: 15.0, hi: 17.0}
+
+          - id: F-13
+            name: WC
+            kind: room
+            rect: {x0: 31.5, y0: 19.0, x1: 37.5, y1: 27.0}
+            notes: "dead-end"
+            doors:
+              - {id: F-13-d1, wall: "x=31.5", lo: 22.0, hi: 23.0}
+
+          - id: F-12
+            name: Office
+            kind: room
+            rect: {x0: 37.5, y0: 13.0, x1: 49.0, y1: 27.0}
+            notes: "through-room"
+            doors:
+              - {id: F-12-d1, wall: "y=13", lo: 40.0, hi: 41.5}
+              - {id: F-12-d2, wall: "x=49", lo: 20.0, hi: 21.5}
+
+        corridor_openings:
+          - {id: FF-op-ringS-ringW, wall: "x=11", lo: 10.0, hi: 13.0}
+          - {id: FF-op-ringS-ringE, wall: "x=49", lo: 10.0, hi: 13.0}
+          - {id: FF-op-ringN-ringW, wall: "x=11", lo: 27.0, hi: 30.0}
+          - {id: FF-op-ringN-ringE, wall: "x=49", lo: 27.0, hi: 30.0}
+          - {id: FF-op-ringS-spine, wall: "y=13", lo: 28.5, hi: 31.5}
+          - {id: FF-op-ringN-spine, wall: "y=27", lo: 28.5, hi: 31.5}
+
+        exits: []
+
+        hazards:
+          - {id: H-3, space: F-10, x: 20.0, y: 20.0, z: 7.0, purpose: "indoor source in the archive core F-10"}
+
+    stairs:
+      - id: ST-W
+        gf_space: ST-W
+        ff_space: ST-W
+        width_m: 1.5
+        riser_m: 0.17
+        tread_m: 0.28
+        flights: 2
+        chi: 0.70
+        enclosed: true
+        discharge_exit: X-NW
+        fire_doors:
+          - {floor: GF, wall: "x=8", lo: 26.0, hi: 27.5}
+          - {floor: FF, wall: "x=8", lo: 26.0, hi: 27.5}
+
+      - id: ST-E
+        gf_space: ST-E
+        ff_space: ST-E
+        width_m: 1.5
+        riser_m: 0.17
+        tread_m: 0.28
+        flights: 2
+        chi: 0.70
+        enclosed: true
+        fire_doors:
+          - {floor: GF, wall: "x=52", lo: 12.0, hi: 13.5}
+          - {floor: FF, wall: "x=52", lo: 12.0, hi: 13.5}
+
+      - id: ST-C
+        gf_space: ST-C
+        ff_space: ST-C
+        width_m: 2.0
+        riser_m: 0.17
+        tread_m: 0.28
+        flights: 2
+        chi: 0.70
+        enclosed: false
+        fire_doors: []
+
+# Scenario presets (§3.8, §6.5): data only in Milestone 1 — dms/scenario/*.py
+# (event application, debounced recompute) is implemented in a later milestone.
+scenarios:
+  baseline:
+    description: "everything AVAILABLE; X-SE locked; clutter and parking off"
+    events:
+      - {type: SetDoorState, id: X-SE, state: UNAVAILABLE}
+
+  slide23_A:
+    description: "no clutter; exits open; no parked cars"
+    events: []
+
+  slide23_B:
+    description: "no clutter; exits open; cars parked"
+    events:
+      - {type: ToggleLayer, layer: parking, on: true}
+
+  slide23_C:
+    description: "clutter on; emergency exits closed (X-NW, X-E UNAVAILABLE); no cars"
+    events:
+      - {type: ToggleLayer, layer: clutter, on: true}
+      - {type: SetExitState, id: X-NW, state: UNAVAILABLE}
+      - {type: SetExitState, id: X-E, state: UNAVAILABLE}
+
+  slide23_D:
+    description: "clutter on; exits closed; cars parked"
+    events:
+      - {type: ToggleLayer, layer: clutter, on: true}
+      - {type: SetExitState, id: X-NW, state: UNAVAILABLE}
+      - {type: SetExitState, id: X-E, state: UNAVAILABLE}
+      - {type: ToggleLayer, layer: parking, on: true}
+
+  block_main_exit:
+    description: "X-S UNAVAILABLE"
+    events:
+      - {type: SetExitState, id: X-S, state: UNAVAILABLE}
+
+  block_ringS_mid:
+    description: "south ring segment in front of LOBBY UNAVAILABLE (LOBBY<->ring-S opening blocked)"
+    events:
+      - {type: SetLinkState, id: LOBBY-op-ringS, state: UNAVAILABLE}
+
+  leak_H1:
+    description: "H-1 active; nearby links/cells become PARTIAL"
+    events:
+      - {type: ActivateSource, id: H-1}
+
+  leak_H2:
+    description: "H-2 active; nearby links/cells become PARTIAL"
+    events:
+      - {type: ActivateSource, id: H-2}
+
+  leak_H3:
+    description: "H-3 active (PARTIAL north ring on FF)"
+    events:
+      - {type: ActivateSource, id: H-3}
+
+  stair_C_lost:
+    description: "ST-C UNAVAILABLE"
+    events:
+      - {type: SetLinkState, id: ST-C, state: UNAVAILABLE}
+
+  two_stairs_lost:
+    description: "ST-C and ST-E UNAVAILABLE (FF must still egress via ST-W)"
+    events:
+      - {type: SetLinkState, id: ST-C, state: UNAVAILABLE}
+      - {type: SetLinkState, id: ST-E, state: UNAVAILABLE}
