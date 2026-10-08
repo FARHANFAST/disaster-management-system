@@ -134,13 +134,14 @@ td .nm { color: var(--muted); font-size: 12px; margin-left: 6px; }
 <div class="wrap">
   <header>
     <div class="eyebrow">Building B1 · Q-learning on the navigation graph · grid walker on 0.5 m cells</div>
-    <h1>Ten evacuees learning their way out</h1>
+    <h1>Evacuees learning their way out</h1>
     <p class="lede">The agents decide on the <b>graph</b>: in each room, door or corridor piece they pick which
       neighbouring node to head for. A <b>grid walker</b> then walks them there cell by cell, using only the cells of
       those two nodes, so they leave rooms through doorways and step around furniture. The reward is
       <b>−seconds actually walked</b>. Each node is coloured by its learned time to an exit (<b>−max Q</b>) once a real
-      route from it is known. All ten share one Q-table. The first floor has no exits, so those agents must learn to
-      take a stair.</p>
+      route from it is known. Every agent shares one Q-table; each one also has its own sampled <b>walking speed</b>,
+      <b>mobility</b> and <b>reaction time</b> (from its gender, age group and role), which scale its real walk time.
+      The first floor has no exits, so those agents must learn to take a stair.</p>
   </header>
 
   <div class="controls" role="toolbar" aria-label="Simulation controls">
@@ -162,7 +163,7 @@ td .nm { color: var(--muted); font-size: 12px; margin-left: 6px; }
       <span>episodes <b id="stEp">0</b></span>
       <span>decisions <b id="stDec">0</b></span>
       <span>nodes known <b id="stKnown">0%</b></span>
-      <span>best route <b id="stOpt">0/10</b></span>
+      <span>best route <b id="stOpt">–</b></span>
     </div>
   </div>
 
@@ -187,7 +188,8 @@ td .nm { color: var(--muted); font-size: 12px; margin-left: 6px; }
       <h3>Agents</h3>
       <p class="sub" id="ledgerSub"></p>
       <div class="tablewrap"><table>
-        <thead><tr><th>Agent</th><th>Floor</th><th class="num">Episodes</th><th class="num" id="thLast">Last</th>
+        <thead><tr><th>Agent</th><th>Floor</th><th>Sex</th><th>Age</th><th>Role</th><th>Mobility</th>
+          <th class="num">React</th><th class="num">Speed</th><th class="num">Episodes</th><th class="num" id="thLast">Last</th>
           <th class="num">Best graph</th><th class="num">Cell optimum</th><th>Learned route</th><th>Status</th></tr></thead>
         <tbody id="ledger"></tbody>
       </table></div>
@@ -226,7 +228,7 @@ const NODE_FLOOR = new Uint8Array(NN), NODE_X = new Float32Array(NN), NODE_Y = n
   for (let s = 0; s < NC; s++) { const u = NODE_OF[s]; NODE_FLOOR[u] = CFLOOR[s]; NODE_X[u] += CC[s] + 0.5; NODE_Y[u] += ROWS - 1 - CR[s] + 0.5; cnt[u]++; }
   for (let u = 0; u < NN; u++) { NODE_X[u] /= cnt[u]; NODE_Y[u] /= cnt[u]; }
 }
-const AGENT_COLORS = ["#2f6fdf", "#d9480f", "#7048e8", "#0c8599", "#e64980", "#8a6d00", "#c2255c", "#1864ab", "#5f3dc4", "#495057"];
+const AGENT_COLORS = D.agents.map((_, i) => `hsl(${(i * 137.508) % 360}, 68%, 52%)`);
 const ALPHA = 0.3;          // averaging: the same node can cost different times from different cells
 const MAX_HOPS = 200;
 const HEAT_MAX_S = 60;
@@ -249,9 +251,9 @@ function legPath(u, k, s) {      // every cell walked on that leg
   for (let guard = 0; NODE_OF[cur] === u && guard < 4000; guard++) { cur = LEG_NEXT[o + POS[cur]]; path.push(cur); }
   return path;
 }
-function stepCost(a, b) {        // time between two consecutive cells of a walked path
-  if (CFLOOR[a] !== CFLOOR[b]) return STAIR_COST[a];
-  return (CR[a] !== CR[b] && CC[a] !== CC[b] ? SQ2 : 1) * D.h / D.v0;
+function stepCost(a, b, f = 1) {        // time between two consecutive cells of a walked path
+  if (CFLOOR[a] !== CFLOOR[b]) return STAIR_COST[a] * f;
+  return (CR[a] !== CR[b] && CC[a] !== CC[b] ? SQ2 : 1) * D.h / D.v0 * f;
 }
 
 // ------------------------------------------------------------------ rng
@@ -265,7 +267,7 @@ function rand() { // mulberry32
 
 // ------------------------------------------------------------------ Q-learning over graph nodes
 let Q, anchored, visitedNode, knownCount, totalDecisions, totalEpisodes;
-const agents = D.agents.map((a, i) => ({ ...a, i, color: AGENT_COLORS[i] }));
+const agents = D.agents.map((a, i) => ({ ...a, i, color: AGENT_COLORS[i], factor: a.factor || 1 }));
 
 function resetLearning() {
   seed = 7;
@@ -282,7 +284,7 @@ function resetLearning() {
   heatDirty = true;
 }
 function respawn(ag, full) {
-  if (full) { ag.episodes = 0; ag.history = []; ag.last = null; ag.best = null; ag.greedy = null; }
+  if (full) { ag.episodes = 0; ag.history = []; ag.last = null; ag.best = null; ag.greedy = null; ag.reactFrames = Math.min(Math.round(ag.reaction_s * 30), 120); }
   ag.s = ag.start; ag.t = 0; ag.hops = 0; ag.trail = [ag.start]; ag.path = null; ag.pathIdx = 0; ag.target = -1;
   visitedNode[NODE_OF[ag.start]] = 1;
 }
@@ -301,13 +303,14 @@ function decide(ag) {
   } else k = argmaxQ(u);
   const v = NEIGH[u * DEG + k], L = leg(u, k, s), i = u * DEG + k;
   if (!L) { Q[i] = -Infinity; return; }
+  const walk = L.t * ag.factor;               // this agent's real walk time, not v0's
   const done = TERM[v] === 1;
   // Q(u,k) <- Q(u,k) + alpha * [ -walk_time + max_k' Q(v,k') - Q(u,k) ]
-  const target = done ? -L.t : -L.t + maxQ(v);
+  const target = done ? -walk : -walk + maxQ(v);
   Q[i] += ALPHA * (target - Q[i]);
   if (done || anchored[v]) { if (!anchored[u]) knownCount++; anchored[u] = 1; }
   if (!visitedNode[v]) visitedNode[v] = 1;
-  ag.t += L.t; ag.hops++; totalDecisions++;
+  ag.t += walk; ag.hops++; totalDecisions++;
   ag.path = legPath(u, k, s); ag.pathIdx = 0; ag.target = v; ag.pendingDone = done; ag.arrival = L.arr;
 }
 function finishEpisode(ag, done) {
@@ -321,7 +324,7 @@ function advanceTrain(ag, budget) {
     if (!ag.path) { decide(ag); if (!ag.path) return; }
     const remaining = ag.path.length - 1 - ag.pathIdx, step = Math.min(budget, remaining);
     for (let j = 1; j <= step; j++) ag.trail.push(ag.path[ag.pathIdx + j]);
-    if (ag.trail.length > 500) ag.trail.splice(0, ag.trail.length - 500);
+    if (ag.trail.length > 250) ag.trail.splice(0, ag.trail.length - 250);
     ag.pathIdx += step; budget -= Math.max(1, step);
     if (ag.pathIdx >= ag.path.length - 1) {          // arrived in the target node
       ag.s = ag.arrival; ag.path = null;
@@ -333,7 +336,8 @@ function advanceTrain(ag, budget) {
 
 // greedy rollout over the graph (no exploration, no learning)
 const stamp = new Int32Array(NN); let stampId = 0;
-function greedyRollout(start, withCells) {
+function greedyRollout(start, withCells, ag) {
+  const f = ag ? ag.factor : 1;
   stampId++;
   let s = start, t = 0; const nodes = [NODE_OF[s]], cells = [s]; stamp[NODE_OF[s]] = stampId;
   for (let h = 0; h < MAX_HOPS; h++) {
@@ -343,7 +347,7 @@ function greedyRollout(start, withCells) {
     if (v < 0 || Q[u * DEG + k] === -Infinity) break;
     const L = leg(u, k, s); if (!L) break;
     if (withCells) { const p = legPath(u, k, s); for (let j = 1; j < p.length; j++) cells.push(p[j]); }
-    t += L.t; s = L.arr; nodes.push(v);
+    t += L.t * f; s = L.arr; nodes.push(v);
     if (stamp[v] === stampId) return { nodes, cells, t, ok: false };
     stamp[v] = stampId;
   }
@@ -370,16 +374,17 @@ let testClock = 0;
 function startTest() {
   testClock = 0;
   for (const ag of agents) {
-    const g = greedyRollout(ag.start, true), times = [0];
-    for (let k = 1; k < g.cells.length; k++) times.push(times[k - 1] + stepCost(g.cells[k - 1], g.cells[k]));
-    ag.test = { ...g, times, total: times[times.length - 1] };
+    const g = greedyRollout(ag.start, true, ag), times = [0];
+    for (let k = 1; k < g.cells.length; k++) times.push(times[k - 1] + stepCost(g.cells[k - 1], g.cells[k], ag.factor));
+    ag.test = { ...g, times, offset: ag.reaction_s, total: times[times.length - 1] + ag.reaction_s };
   }
 }
 function testPose(ag) {
-  const { cells, times } = ag.test;
-  if (testClock >= times[times.length - 1]) return { s: cells[cells.length - 1], s2: null, f: 0, k: cells.length - 1, arrived: true };
-  let k = 1; while (k < times.length && times[k] <= testClock) k++;
-  return { s: cells[k - 1], s2: cells[k], f: (testClock - times[k - 1]) / (times[k] - times[k - 1] || 1), k: k - 1, arrived: false };
+  const { cells, times, offset } = ag.test, t = testClock - offset;
+  if (t >= times[times.length - 1]) return { s: cells[cells.length - 1], s2: null, f: 0, k: cells.length - 1, arrived: true };
+  if (t < 0) return { s: cells[0], s2: null, f: 0, k: 0, arrived: false };         // still reacting
+  let k = 1; while (k < times.length && times[k] <= t) k++;
+  return { s: cells[k - 1], s2: cells[k], f: (t - times[k - 1]) / (times[k] - times[k - 1] || 1), k: k - 1, arrived: false };
 }
 
 // ------------------------------------------------------------------ drawing
@@ -575,14 +580,17 @@ function renderLedger() {
       last = ag.test.ok ? fmt(Math.min(testClock, ag.test.total)) : "—";
     }
     return `<tr><td><span class="sw" style="background:${ag.color}">${ag.i + 1}</span><span class="rm">${ag.room}</span><span class="nm">${ag.name}</span></td>
-      <td>${ag.floor}</td><td class="num">${ag.episodes}</td><td class="num">${last}</td><td class="num">${fmt(ag.graphOpt)}</td>
+      <td>${ag.floor}</td><td>${ag.gender}</td><td>${ag.age}</td><td>${ag.role}</td>
+      <td>${ag.mobility}<span class="nm">×${ag.mobilityFactor}</span></td>
+      <td class="num">${ag.reaction_s.toFixed(1)} s</td><td class="num">${ag.speed.toFixed(2)} m/s</td>
+      <td class="num">${ag.episodes}</td><td class="num">${last}</td><td class="num">${fmt(ag.graphOpt)}</td>
       <td class="num">${fmt(ag.cellOpt)}</td><td class="route">${route}</td><td>${status}</td></tr>`;
   });
   document.getElementById("ledger").innerHTML = rows.join("");
   document.getElementById("stEp").textContent = totalEpisodes.toLocaleString();
   document.getElementById("stDec").textContent = totalDecisions.toLocaleString();
   document.getElementById("stKnown").textContent = (100 * knownCount / (NN - TERM.reduce((a, b) => a + b, 0))).toFixed(0) + "%";
-  document.getElementById("stOpt").textContent = `${nOpt}/10`;
+  document.getElementById("stOpt").textContent = `${nOpt}/${agents.length}`;
 }
 
 // ------------------------------------------------------------------ loop + controls
@@ -595,7 +603,7 @@ function updateSpeedLabel() {
 }
 function refreshGreedy() {
   const routes = document.getElementById("showRoutes").checked;
-  for (const ag of agents) { ag.greedy = greedyRollout(ag.start, routes); ag.greedyCells = routes ? ag.greedy.cells : null; }
+  for (const ag of agents) { ag.greedy = greedyRollout(ag.start, routes, ag); ag.greedyCells = routes ? ag.greedy.cells : null; }
 }
 let lastT = performance.now();
 function tick(now) {
@@ -603,7 +611,10 @@ function tick(now) {
   if (playing) {
     if (mode === "train") {
       const k = SPEEDS_TRAIN[speedIndex()];
-      for (const ag of agents) advanceTrain(ag, k);
+      for (const ag of agents) {
+        if (ag.reactFrames > 0) { ag.reactFrames--; continue; }   // pre-evacuation reaction delay (once)
+        advanceTrain(ag, k);
+      }
       if (frame % 6 === 0) heatDirty = true;
       if (frame % 10 === 0) refreshGreedy();
     } else testClock += dt * SPEEDS_TEST[speedIndex()];
@@ -620,7 +631,7 @@ function setMode(m) {
   document.getElementById("thLast").textContent = m === "train" ? "Last" : "Clock";
   document.getElementById("ledgerSub").textContent = m === "train"
     ? "Training: Last is each agent's most recent finished episode, including exploratory detours. Best graph is the fastest any graph policy can do with this walker; cell optimum is the fastest possible at all."
-    : "Test: learning is off. Each agent follows its learned best node from its spawn while the walker moves it in real time (stairs take about 11 s).";
+    : "Test: learning is off. Each agent follows its learned best node from its spawn while the walker moves it in real time (stairs take about 11 s). The clock starts at the alarm, so every agent waits out its own reaction time before moving; 'Out in' includes that delay.";
   if (m === "test") startTest();
   document.getElementById("speed").value = m === "train" ? 3 : 3;
   updateSpeedLabel(); playing = true; syncPlay(); renderLedger();
