@@ -8,11 +8,11 @@ The page gets the exact graph (nodes, neighbours, exits), the exact
 cell->node map, and every walker leg precomputed by GridWalker (time, next
 cell, arrival cell for each start cell of each directed edge), so the agents
 you watch walk the same paths the Python trainer and tests use — only the
-Q-learning loop is re-implemented in JS. Agents are sampled with simple
-heterogeneous attributes (gender, age, role -> walking speed, mobility,
-reaction time) and spawn at distinct random cells across both floors; they
-share one Q-table over the graph, and each one's real walk time is its
-leg time scaled by v0 / (its own speed).
+Q-learning loop is re-implemented in JS. Agents are sampled with a full
+attribute set (demographics, cognitive profile, physiological state) but only
+the movement attributes — walking speed, mobility, reaction time — change the
+simulation; the rest are carried along for the future Agent/Decision module.
+Each agent's real walk time is its leg time scaled by v0 / (its own speed).
 """
 
 from __future__ import annotations
@@ -58,6 +58,22 @@ _REACTION_RANGE_S = {"Young": (5.0, 15.0), "Adult": (8.0, 20.0), "Elderly": (15.
 _ROLE_REACTION = {"Senior staff": 0.7, "Mid staff": 1.0, "Junior staff": 1.2, "Visitor": 1.3, "Contractor": 1.1}
 MAX_SPEED = 2.0  # m/s cap on effective walking speed
 
+# Cognitive / physiological profile (docs: Agent Data & Decision Model v0.2,
+# Data Dictionary Table 6). Recorded on every agent but deliberately inert:
+# only the movement attributes above (base speed, mobility, reaction, and the
+# demographics they derive from) change the simulation so far.
+_PERSONA_OPT = (("Rationalist", (0.50, 0.15, 0.35)),
+                ("Follower", (0.20, 0.55, 0.25)),
+                ("Cautious", (0.45, 0.10, 0.45)),
+                ("Responder", (0.55, 0.20, 0.25))), (0.48, 0.26, 0.21, 0.05)
+_PANIC_THRESHOLD = {"Rationalist": (0.65, 0.85), "Follower": (0.50, 0.70),
+                    "Cautious": (0.55, 0.75), "Responder": (0.75, 0.90)}
+_FAMILIARITY = {"Senior staff": (0.82, 0.90), "Mid staff": (0.75, 0.85),
+                "Junior staff": (0.65, 0.80), "Visitor": (0.15, 0.40),
+                "Contractor": (0.45, 0.60)}
+_HEALTH_OPT = {"Young": (0.985, 0.010, 0.005), "Adult": (0.970, 0.020, 0.010),
+               "Elderly": (0.920, 0.050, 0.030)}, ("Healthy", "Irritated", "Distressed")
+
 # Cell categories for drawing the plan (one byte per cell).
 OUTSIDE, WALL, FLOOR, FURNITURE, DOOR, EXIT, STAIR, VOID, WINDOW, LOCKED_EXIT = range(10)
 # Node kinds for the page (drawing + route labels).
@@ -86,23 +102,44 @@ def _categories(genv: GraphEvacEnv, f: int) -> np.ndarray:
 
 
 def sample_population(n: int, rng: np.random.Generator) -> list[dict]:
-    """Sample `n` agents' demographics and the simple attributes that follow
-    from them: walking speed, mobility and reaction time."""
+    """Sample `n` agents' full attribute set. Demographic and cognitive
+    distributions are designed here; mobility, walking speed and reaction time
+    drive the simulation, everything else is carried along for the future
+    Agent/Decision module (docs v0.2, Data Dictionary Table 6)."""
     genders, gp = _GENDER_OPT
     ages, ap = _AGE_OPT
     roles, rp = _ROLE_OPT
+    personas, pp = _PERSONA_OPT
+    health_p, health_states = _HEALTH_OPT
     pop = []
-    for g in rng.choice(genders, n, p=gp):
+    for i, g in enumerate(rng.choice(genders, n, p=gp)):
         age = str(rng.choice(ages, p=ap))
         role = str(rng.choice(roles, p=rp))
+        persona, (w1, w2, w3) = personas[int(rng.choice(len(personas), p=pp))]
+        health = str(rng.choice(health_states, p=health_p[age]))
         lo, hi = _SPEED_RANGE[(age, str(g))]
         base = float(rng.uniform(lo, hi))
         mobility = str(rng.choice(tuple(_MOBILITY_FACTOR), p=_MOBILITY_P[age]))
         reaction = float(rng.uniform(*_REACTION_RANGE_S[age]) * _ROLE_REACTION[role])
         speed = min(base * _MOBILITY_FACTOR[mobility], MAX_SPEED)
-        pop.append(dict(gender=str(g), age=age, role=role, baseSpeed=base, mobility=mobility,
-                        mobilityFactor=_MOBILITY_FACTOR[mobility], reaction_s=reaction,
-                        speed=speed, factor=V0 / speed))
+        pop.append(dict(
+            agentId=f"AG-{i + 1:03d}",
+            gender=str(g), age=age, role=role,
+            # cognitive profile (inert)
+            persona=persona, personaW1=w1, personaW2=w2, personaW3=w3,
+            panicThreshold=round(float(rng.uniform(*_PANIC_THRESHOLD[persona])), 2),
+            familiarity=round(float(rng.uniform(*_FAMILIARITY[role])), 2),
+            sensingRadius=15.0 if persona == "Responder" else 5.0,
+            isResponder=persona == "Responder",
+            # physiological state, initial (inert)
+            healthStatus=health, stressLevel=round(float(rng.uniform(0.0, 0.15)), 2),
+            fatigueLevel=round(float(rng.uniform(0.0, 0.05)), 2), panicLevel=0.0,
+            toxicDose=round(float(rng.uniform(0.0, 0.5)), 2) if health != "Healthy" else 0.0,
+            peakPpm=0.0, currentState="NORMAL", assignedExit="",
+            # movement (drives the simulation)
+            baseSpeed=base, mobility=mobility, mobilityFactor=_MOBILITY_FACTOR[mobility],
+            reaction_s=reaction, speed=speed, factor=V0 / speed,
+        ))
     return pop
 
 
@@ -236,6 +273,7 @@ def main() -> None:
     for a in payload["agents"]:
         print(f"  {a['floor']} {a['room']:5s} {a['age']:7s} {a['gender']} {a['role']:12s} "
               f"mob={a['mobility']:8s} react={a['reaction_s']:5.1f}s speed={a['speed']:4.2f} m/s  "
+              f"{a['persona']:10s} fam={a['familiarity']:.2f} health={a['healthStatus']:9s}  "
               f"best graph {a['graphOpt']:5.1f}s  cell optimum {a['cellOpt']:5.1f}s")
 
 

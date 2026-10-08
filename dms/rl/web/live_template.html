@@ -141,6 +141,8 @@ td .nm { color: var(--muted); font-size: 12px; margin-left: 6px; }
       <b>−seconds actually walked</b>. Each node is coloured by its learned time to an exit (<b>−max Q</b>) once a real
       route from it is known. Every agent shares one Q-table; each one also has its own sampled <b>walking speed</b>,
       <b>mobility</b> and <b>reaction time</b> (from its gender, age group and role), which scale its real walk time.
+      The ledger also carries each agent's full cognitive and physiological profile — persona, familiarity, panic
+      threshold, sensing radius, health, stress — shown but not simulated yet.
       The first floor has no exits, so those agents must learn to take a stair.</p>
   </header>
 
@@ -188,7 +190,7 @@ td .nm { color: var(--muted); font-size: 12px; margin-left: 6px; }
       <h3>Agents</h3>
       <p class="sub" id="ledgerSub"></p>
       <div class="tablewrap"><table>
-        <thead><tr><th>Agent</th><th>Floor</th><th>Sex</th><th>Age</th><th>Role</th><th>Mobility</th>
+        <thead><tr><th>Agent</th><th>Floor</th><th>Sex</th><th>Age</th><th>Role</th><th>Persona</th><th>Mobility</th><th>Health</th>
           <th class="num">React</th><th class="num">Speed</th><th class="num">Episodes</th><th class="num" id="thLast">Last</th>
           <th class="num">Best graph</th><th class="num">Cell optimum</th><th>Learned route</th><th>Status</th></tr></thead>
         <tbody id="ledger"></tbody>
@@ -563,6 +565,13 @@ function drawChart() {
 
 // ------------------------------------------------------------------ ledger
 const fmt = t => t === null || t === undefined ? "—" : t.toFixed(1) + " s";
+function attrTitle(ag) {
+  const w = `${ag.personaW1}/${ag.personaW2}/${ag.personaW3}`;
+  return `Agent ${ag.agentId} · ${ag.gender}, ${ag.age} · ${ag.role}${ag.isResponder ? " (responder)" : ""}` +
+    `\nPersona ${ag.persona} (knowledge/social/hazard = ${w}) · panic threshold ${ag.panicThreshold} · familiarity ${ag.familiarity} · sensing radius ${ag.sensingRadius} m` +
+    `\nHealth ${ag.healthStatus} · stress ${ag.stressLevel} · fatigue ${ag.fatigueLevel} · panic ${ag.panicLevel}` +
+    `\nToxic dose ${ag.toxicDose} ppm·min · peak ${ag.peakPpm} ppm · state ${ag.currentState} · assigned exit ${ag.assignedExit || "—"}`;
+}
 function renderLedger() {
   let nOpt = 0;
   const rows = agents.map(ag => {
@@ -579,9 +588,10 @@ function renderLedger() {
       else status = `<span class="chip idle">${CFLOOR[p.s] === 1 ? "On first floor" : "On ground floor"}</span>`;
       last = ag.test.ok ? fmt(Math.min(testClock, ag.test.total)) : "—";
     }
-    return `<tr><td><span class="sw" style="background:${ag.color}">${ag.i + 1}</span><span class="rm">${ag.room}</span><span class="nm">${ag.name}</span></td>
-      <td>${ag.floor}</td><td>${ag.gender}</td><td>${ag.age}</td><td>${ag.role}</td>
-      <td>${ag.mobility}<span class="nm">×${ag.mobilityFactor}</span></td>
+    return `<tr title="${attrTitle(ag).replace(/"/g, "&quot;")}"><td><span class="sw" style="background:${ag.color}">${ag.i + 1}</span><span class="rm">${ag.room}</span><span class="nm">${ag.name}</span></td>
+      <td>${ag.floor}</td><td>${ag.gender}</td><td>${ag.age}</td><td>${ag.role}<span class="nm">${ag.isResponder ? "· responder" : ""}</span></td>
+      <td>${ag.persona}<span class="nm">${ag.personaW1}/${ag.personaW2}/${ag.personaW3}</span></td>
+      <td>${ag.mobility}<span class="nm">×${ag.mobilityFactor}</span></td><td>${ag.healthStatus}</td>
       <td class="num">${ag.reaction_s.toFixed(1)} s</td><td class="num">${ag.speed.toFixed(2)} m/s</td>
       <td class="num">${ag.episodes}</td><td class="num">${last}</td><td class="num">${fmt(ag.graphOpt)}</td>
       <td class="num">${fmt(ag.cellOpt)}</td><td class="route">${route}</td><td>${status}</td></tr>`;
