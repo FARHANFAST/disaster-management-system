@@ -19,6 +19,7 @@ out/*.gif
 out/*.mp4
 out/*.npz
 out/*.png
+out/*.pt
 *.log
 
 # Office lock files
