@@ -55,6 +55,14 @@ class DQNConfig:
 
 
 @dataclass(slots=True)
+class Episode:
+    """Per-episode context the training loop threads through the hooks below.
+    Subclasses (dms/rl/gas_dqn.py) extend it with their own state."""
+    attr: np.ndarray
+    t: float = 0.0  # seconds walked so far
+
+
+@dataclass(slots=True)
 class DQNTrainLog:
     episode_time: list[float] = field(default_factory=list)
     episode_hops: list[int] = field(default_factory=list)
@@ -103,21 +111,27 @@ class ReplayBuffer:
         self._reward = np.empty(capacity, dtype=np.float32)
         self._done = np.empty(capacity, dtype=bool)
         self._attr = [None] * capacity
+        self._next_attr = [None] * capacity
 
-    def push(self, node: int, attr: np.ndarray, action: int, reward: float, next_node: int, done: bool) -> None:
+    def push(self, node: int, attr: np.ndarray, action: int, reward: float, next_node: int, done: bool,
+             next_attr: np.ndarray | None = None) -> None:
+        """`next_attr` is the feature vector at `next_node` when it differs from
+        `attr` (time-varying inputs such as gas); defaults to `attr`."""
         self._node[self.pos] = node
         self._next[self.pos] = next_node
         self._action[self.pos] = action
         self._reward[self.pos] = reward
         self._done[self.pos] = done
         self._attr[self.pos] = attr
+        self._next_attr[self.pos] = attr if next_attr is None else next_attr
         self.pos = (self.pos + 1) % self.capacity
         self.size = min(self.size + 1, self.capacity)
 
-    def sample(self, n: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def sample(self, n: int) -> tuple[np.ndarray, ...]:
         idx = self.rng.integers(0, self.size, size=n)
         return (self._node[idx], np.stack([self._attr[i] for i in idx]), self._action[idx],
-                self._reward[idx], self._next[idx], self._done[idx])
+                self._reward[idx], self._next[idx], self._done[idx],
+                np.stack([self._next_attr[i] for i in idx]))
 
 
 class DQN:
@@ -132,8 +146,9 @@ class DQN:
         torch.manual_seed(cfg.seed)
         self.rng = np.random.default_rng(cfg.seed)
         self.n_attr = int(profile_features(sample_population(1, np.random.default_rng(0))[0]).size)
-        self.online = QNetwork(env.n_nodes, self.n_attr, env.max_deg, cfg.hidden).to(self.device)
-        self.target = QNetwork(env.n_nodes, self.n_attr, env.max_deg, cfg.hidden).to(self.device)
+        self.n_x = self._n_extra()  # network inputs beside the node one-hot
+        self.online = QNetwork(env.n_nodes, self.n_x, env.max_deg, cfg.hidden).to(self.device)
+        self.target = QNetwork(env.n_nodes, self.n_x, env.max_deg, cfg.hidden).to(self.device)
         self.target.eval()
         self.optimizer = torch.optim.Adam(self.online.parameters(), lr=cfg.lr)
         self.buffer = ReplayBuffer(cfg.buffer_size, self.rng)
@@ -155,6 +170,27 @@ class DQN:
             gains = [t[env.cells_of_node[int(env.neighbours[u, int(kk)])]].min() for kk in k]
             slots[u] = int(k[int(np.argmin(gains))])
         return slots
+
+    # ------------------------------------------------- episode hooks (override)
+
+    def _n_extra(self) -> int:
+        return self.n_attr
+
+    def _begin_episode(self) -> tuple[int, Episode]:
+        """Start cell + context for one training episode."""
+        return int(self.rng.choice(self.env.start_states)), Episode(self._feats())
+
+    def _x(self, u: int, ep: Episode) -> np.ndarray:
+        """Network input beside the node one-hot, for a decision at node u."""
+        return ep.attr
+
+    def _step(self, s: int, a: int, ep: Episode) -> tuple[int, float, bool]:
+        s2, r, done = self.env.step(s, a)
+        ep.t -= r
+        return s2, r, done
+
+    def _reached(self, s: int, ep: Episode) -> bool:
+        return bool(self.env.terminal[self.env.node(s)])
 
     # ------------------------------------------------------------- utilities
 
@@ -234,12 +270,12 @@ class DQN:
     def _optimize(self) -> float | None:
         if self.buffer.size < self.cfg.train_start:
             return None
-        node, attr, action, reward, next_node, done = self.buffer.sample(self.cfg.batch_size)
+        node, attr, action, reward, next_node, done, next_attr = self.buffer.sample(self.cfg.batch_size)
         q_s = self._q_valid(self.online, node, attr)
         picked = q_s.gather(1, torch.tensor(action, device=self.device)[:, None]).squeeze(1)
         with torch.no_grad():
-            q_next_sel = self._q_valid(self.online, next_node, attr)      # double-Q: select with online
-            q_next_tgt = self._q_valid(self.target, next_node, attr)      #           evaluate with target
+            q_next_sel = self._q_valid(self.online, next_node, next_attr)      # double-Q: select with online
+            q_next_tgt = self._q_valid(self.target, next_node, next_attr)      #           evaluate with target
             a_best = q_next_sel.argmax(1)
             target = q_next_tgt.gather(1, a_best[:, None]).squeeze(1)
             targets = (torch.tensor(reward, device=self.device)
@@ -272,15 +308,15 @@ class DQN:
 
         for ep in range(cfg.episodes):
             eps = cfg.eps_start + min(1.0, ep / span) * (cfg.eps_end - cfg.eps_start)
-            feats_np = self._feats()
-            feats_t = torch.tensor(feats_np, device=self.device)
-            s = int(self.rng.choice(self.env.start_states))
-            t, hops = 0.0, 0
+            s, ctx = self._begin_episode()
+            hops, done = 0, False
             node = torch.ones((1,), dtype=torch.long, device=self.device)
+            x = None
             while hops < cfg.max_hops:
                 u = self.env.node(s)
                 if self.env.terminal[u]:
                     break
+                x = self._x(u, ctx) if x is None else x
                 if self.rng.random() < eps:
                     if self.rng.random() < cfg.explore_familiar:
                         a = int(self.familiar_slots[u])
@@ -288,11 +324,14 @@ class DQN:
                         a = self.valid_slots[u][int(self.rng.integers(len(self.valid_slots[u])))]
                 else:
                     node[0] = u
-                    out = self.online(node, feats_t)
+                    out = self.online(node, torch.tensor(x, device=self.device))
                     out = out.where(self.valid_t[u], torch.full_like(out, -1e18))
                     a = int(out.argmax().item())
-                s2, r, done = self.env.step(s, a)
-                self.buffer.push(u, feats_np, a, r, self.env.node(s2), done)
+                s2, r, done = self._step(s, a, ctx)
+                u2 = self.env.node(s2)
+                x2 = self._x(u2, ctx)
+                self.buffer.push(u, x, a, r, u2, done, x2)
+                x = x2
                 self.steps += 1
                 if self.steps % cfg.target_sync == 0:
                     self.target.load_state_dict(self.online.state_dict())
@@ -300,14 +339,13 @@ class DQN:
                     loss = self._optimize()
                     if loss is not None:
                         log.losses.append(loss)
-                t -= r
                 hops += 1
                 s = s2
                 if done:
                     break
-            log.episode_time.append(t)
+            log.episode_time.append(ctx.t)
             log.episode_hops.append(hops)
-            log.reached_exit.append(done)
+            log.reached_exit.append(self._reached(s, ctx))
             if progress_every and (ep + 1) % progress_every == 0:
                 emit(ep + 1, eps)
         return log
