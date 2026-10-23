@@ -1,0 +1,978 @@
+<title>H₂S Evacuation Replay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<style>
+/* Same drafting-sheet language as the RL live page. Gas has its own ramp
+   (pale yellow -> amber -> orange -> red -> plum, log ppm); agents use cool
+   hues so they never read as gas. Hatched = at/above the avoid level. */
+:root {
+  --paper: #f2f4f1; --sheet: #fbfcfa; --ink: #1b2830; --muted: #5b6970; --rule: #cfd7d3;
+  --wall: #22313a; --floor: #e4e9e5; --furniture: #a8b3b0; --void: #d6d0de; --door: #c9a45a; --stair: #7f97a8;
+  --ground: #eef1ec; --grid: #dfe5e1; --obstacle: #b9c2bf;
+  --safe: #0b8a4b; --danger: #c2412d; --focus: #2a63d4;
+  --chip-ok: #dff1e6; --chip-ok-fg: #0a6b3a; --chip-warn: #f7ecd0; --chip-warn-fg: #7a5a0c;
+  --chip-bad: #f8dcd6; --chip-bad-fg: #8f2615; --chip-idle: #e7ebe9; --chip-idle-fg: #4b585e;
+  --chip-info: #dde8fb; --chip-info-fg: #1f4fa8;
+  --font-display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #10171b; --sheet: #151e23; --ink: #dbe4e6; --muted: #92a1a6; --rule: #2a373d;
+    --wall: #c9d6da; --floor: #1e292e; --furniture: #4a5a60; --void: #2c2836; --door: #b8934c; --stair: #5d7b8f;
+    --ground: #131b1f; --grid: #1f2a2f; --obstacle: #3a474c;
+    --safe: #2fbf72; --danger: #e0634d; --focus: #7aa5ff;
+    --chip-ok: #143a26; --chip-ok-fg: #7fe0a6; --chip-warn: #3a3015; --chip-warn-fg: #e9c86a;
+    --chip-bad: #3d1d17; --chip-bad-fg: #f2a08f; --chip-idle: #222d32; --chip-idle-fg: #a3b1b5;
+    --chip-info: #18284a; --chip-info-fg: #9dbcf5; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #10171b; --sheet: #151e23; --ink: #dbe4e6; --muted: #92a1a6; --rule: #2a373d;
+  --wall: #c9d6da; --floor: #1e292e; --furniture: #4a5a60; --void: #2c2836; --door: #b8934c; --stair: #5d7b8f;
+  --ground: #131b1f; --grid: #1f2a2f; --obstacle: #3a474c;
+  --safe: #2fbf72; --danger: #e0634d; --focus: #7aa5ff;
+  --chip-ok: #143a26; --chip-ok-fg: #7fe0a6; --chip-warn: #3a3015; --chip-warn-fg: #e9c86a;
+  --chip-bad: #3d1d17; --chip-bad-fg: #f2a08f; --chip-idle: #222d32; --chip-idle-fg: #a3b1b5;
+  --chip-info: #18284a; --chip-info-fg: #9dbcf5; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font: 400 14px/1.5 var(--font-body); padding: 20px 16px 40px; margin: 0; }
+.wrap { max-width: 1400px; margin: 0 auto; display: grid; gap: 16px; }
+header { display: grid; gap: 6px; }
+.eyebrow { font: 500 11px/1 var(--font-data); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font: 600 28px/1.1 var(--font-display); margin: 0; text-wrap: balance; letter-spacing: -.01em; }
+.lede { margin: 0; max-width: 84ch; color: var(--muted); }
+.lede b { color: var(--ink); font-weight: 500; }
+
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 10px 12px;
+  background: var(--sheet); border: 1px solid var(--rule); border-radius: 6px; position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; }
+.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 5px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; }
+.seg button + button { border-left: 1px solid var(--rule); }
+button { font: 500 13px/1 var(--font-body); color: var(--ink); background: var(--paper); border: 1px solid var(--rule);
+  border-radius: 5px; padding: 8px 12px; cursor: pointer; }
+button:hover { border-color: var(--muted); }
+button[aria-pressed="true"] { background: var(--ink); color: var(--sheet); }
+button.primary { background: var(--safe); color: #fff; border-color: transparent; min-width: 72px; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+label.ctl { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+label.ctl input[type=checkbox] { accent-color: var(--safe); }
+.scrub { display: flex; align-items: center; gap: 10px; flex: 1 1 280px; min-width: 220px; }
+.scrub input { flex: 1; accent-color: var(--safe); }
+.clock { font: 500 15px var(--font-data); font-variant-numeric: tabular-nums; min-width: 7ch; }
+select { font: 500 13px var(--font-body); color: var(--ink); background: var(--paper); border: 1px solid var(--rule); border-radius: 5px; padding: 6px 8px; }
+
+.status { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; font-size: 13px; color: var(--muted); }
+.status b { color: var(--ink); font-weight: 500; font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+.chip { display: inline-block; padding: 3px 9px; border-radius: 999px; font: 500 11.5px var(--font-body); white-space: nowrap; }
+.chip.ok { background: var(--chip-ok); color: var(--chip-ok-fg); }
+.chip.warn { background: var(--chip-warn); color: var(--chip-warn-fg); }
+.chip.bad { background: var(--chip-bad); color: var(--chip-bad-fg); }
+.chip.idle { background: var(--chip-idle); color: var(--chip-idle-fg); }
+.chip.info { background: var(--chip-info); color: var(--chip-info-fg); }
+
+.main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.col { display: grid; gap: 14px; min-width: 0; }
+.panel { background: var(--sheet); border: 1px solid var(--rule); border-radius: 6px; padding: 10px 10px 8px; min-width: 0; }
+.panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.panel-head h2 { font: 600 16px/1 var(--font-display); margin: 0; }
+.panel-head span { font: 400 11px var(--font-data); color: var(--muted); }
+.panel canvas { display: block; width: 100%; height: auto; }
+#chart, #expo { height: 230px; cursor: pointer; }
+.charts { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+.cmp { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.cmp-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 2px 0 6px; }
+.cmp-head b { font: 600 15px var(--font-display); }
+.cmp-head span { font: 400 12px var(--font-data); color: var(--muted); }
+.cmp-head span .bad-num { font-weight: 500; }
+.picker { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0 10px; font-size: 13px; color: var(--muted); }
+.picker button { padding: 5px 9px; font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px; }
+.picker button .sw { width: 18px; height: 18px; font-size: 10.5px; display: inline-grid; place-items: center; border-radius: 50%; color: #fff; font-family: var(--font-data); }
+.focus-card { margin-top: 10px; }
+.fc-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.fc { border: 1px solid var(--rule); border-radius: 6px; padding: 10px 12px; display: grid; gap: 6px; }
+.fc h4 { margin: 0; font: 600 14px var(--font-display); display: flex; align-items: center; gap: 8px; }
+.fc h4 i { display: inline-block; width: 26px; height: 0; border-top: 3px solid; }
+.fc .route { font: 400 12.5px var(--font-data); }
+.fc .nums { display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 12.5px; color: var(--muted); }
+.fc .nums b { color: var(--ink); font: 500 13px var(--font-data); }
+.fc-verdict { margin: 0 0 8px; font-size: 13.5px; }
+.fc-verdict .sw { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; color: #fff; font: 500 11px var(--font-data); margin-right: 4px; vertical-align: -4px; }
+.fc-why { margin: 8px 0 0; padding-left: 18px; font-size: 12.5px; color: var(--muted); }
+.fc-why b { color: var(--ink); font-weight: 500; }
+tr.sel td { background: var(--chip-info); }
+tbody tr { cursor: pointer; }
+.log { list-style: none; margin: 0; padding: 0; max-height: 330px; overflow-y: auto; display: grid; gap: 2px; }
+.log li { display: grid; grid-template-columns: 52px 26px minmax(0, 1fr); gap: 6px; align-items: start; padding: 6px 6px;
+  border-radius: 4px; cursor: pointer; font-size: 12.5px; line-height: 1.45; }
+.log li:hover { background: var(--paper); }
+.log li.fresh { background: var(--chip-warn); }
+.log .lt { font: 500 11.5px var(--font-data); color: var(--muted); padding-top: 1px; font-variant-numeric: tabular-nums; }
+.log .sw { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; color: #fff; font: 500 11px var(--font-data); }
+.log .x { color: var(--danger); font-weight: 500; }
+.log .ok { color: var(--safe); font-weight: 500; }
+.log-empty { color: var(--muted); font-size: 12.5px; padding: 6px; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; font-size: 12px; color: var(--muted); }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -2px; margin-right: 5px; }
+.ramp { display: inline-flex; align-items: center; gap: 6px; }
+.ramp canvas { width: 180px; height: 12px; border-radius: 2px; }
+.ramp-ticks { display: block; position: relative; width: 180px; height: 13px; font: 400 10px var(--font-data); }
+.ramp-ticks span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+
+.kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 10px; }
+.kpi { border: 1px solid var(--rule); border-radius: 6px; padding: 10px 12px; display: grid; gap: 4px; }
+.kpi h4 { margin: 0; font: 600 14px var(--font-display); }
+.kpi .nums { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 12.5px; color: var(--muted); }
+.kpi .nums b { color: var(--ink); font: 500 15px var(--font-data); font-variant-numeric: tabular-nums; margin-right: 3px; }
+.tablewrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+th { font: 500 11px var(--font-data); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+th.grp { text-align: center; border-bottom: 0; padding-bottom: 0; }
+td.num, th.num { text-align: right; font-family: var(--font-data); font-size: 12.5px; }
+td.route { font: 400 12px var(--font-data); color: var(--muted); }
+td.sepl, th.sepl { border-left: 1px solid var(--rule); }
+td .sw { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; color: #fff;
+  font: 500 11px var(--font-data); margin-right: 8px; vertical-align: middle; }
+td .rm { font-weight: 500; }
+td .nm { color: var(--muted); font-size: 12px; margin-left: 6px; }
+.bad-num { color: var(--danger); font-weight: 500; }
+.panel h3 { font: 600 15px/1 var(--font-display); margin: 0 0 4px; }
+.panel p.sub { margin: 0 0 10px; font-size: 12px; color: var(--muted); max-width: 110ch; }
+@media (max-width: 980px) { .main, .kpis, .charts, .cmp, .fc-grid { grid-template-columns: minmax(0, 1fr); } h1 { font-size: 23px; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow" id="eyebrow"></div>
+    <h1>Evacuating around an H₂S plume</h1>
+    <p class="lede">A pipe leak at tank <b>H-4</b> sends H₂S over building B1. Outdoors the gas is a sum of Gaussian
+      puffs that drift with the wind, so the plume bends when the wind turns. Each room and corridor segment is a
+      well-mixed box that slowly takes in outdoor air. When a facade detector reads 30 ppm for 5 s the alarm latches,
+      the HVAC shuts down and people head out. Every time they reach a node of the navigation graph, they re-plan with
+      <b>A*</b>, avoiding any node that will be at or above <b id="ledeAvoid">10</b> ppm when they get there
+      (according to the 5-minute forecast). An exit's level is the worst air on the outdoor walk from that door to
+      its assembly point. Switch to <b>Gas-blind</b> to watch the same people take the plain fastest route.</p>
+  </header>
+
+  <div class="controls" role="toolbar" aria-label="Replay controls">
+    <button id="play" class="primary">Play</button>
+    <div class="scrub"><input id="scrub" type="range" min="0" step="0.1" aria-label="Simulation time"><span class="clock" id="clock">0.0 s</span></div>
+    <label class="ctl" for="speed">Speed <select id="speed">
+      <option value="1">1×</option><option value="2">2×</option><option value="4" selected>4×</option><option value="8">8×</option><option value="16">16×</option></select></label>
+    <div class="seg" role="group" aria-label="Which run">
+      <button id="runAware" aria-pressed="true">Gas-aware A*</button>
+      <button id="runBlind" aria-pressed="false">Gas-blind</button>
+      <button id="runBoth" aria-pressed="false">Both</button>
+    </div>
+    <label class="ctl" for="showRoutes"><input id="showRoutes" type="checkbox" checked> Planned routes</label>
+    <label class="ctl" for="showWhy"><input id="showWhy" type="checkbox" checked> Rejected routes ✕</label>
+    <label class="ctl" for="showForecast"><input id="showForecast" type="checkbox"> 5-min forecast</label>
+  </div>
+
+  <div class="status" aria-live="polite">
+    <span>Alarm <span id="stAlarm" class="chip idle">NORMAL</span></span>
+    <span>Wind <b id="stWind">–</b></span>
+    <span>HVAC <b id="stHvac">on</b></span>
+    <span>Inside <b id="stIn">0</b></span>
+    <span>Sheltering <b id="stShelter">0</b></span>
+    <span>Outside / safe <b id="stOut">0</b></span>
+    <span id="stRunNote"></span>
+  </div>
+
+  <section class="panel" id="cmpPanel">
+    <div class="panel-head"><h2>Same people, two planners: complete routes</h2><span>solid = ground floor and outside · dotted = first floor · dot = where they are now</span></div>
+    <div class="picker" id="picker" role="group" aria-label="Focus on one person"></div>
+    <div class="cmp">
+      <div><div class="cmp-head"><b>Gas-aware A*</b><span id="cmpAStat"></span></div><canvas id="cCmpA"></canvas></div>
+      <div id="cmpBWrap"><div class="cmp-head"><b>Gas-blind (fastest route)</b><span id="cmpBStat"></span></div><canvas id="cCmpB"></canvas></div>
+    </div>
+    <div class="focus-card" id="focusCard"></div>
+  </section>
+
+  <div class="main">
+    <div class="col">
+      <section class="panel"><div class="panel-head"><h2>Site · outdoor plume at 1.5 m</h2><span id="siteSub"></span></div><canvas id="cSite"></canvas></section>
+      <section class="panel"><div class="panel-head"><h2>Why A* chose each route</h2><span>gas-aware run · newest first · click to jump</span></div>
+        <p class="sub" style="margin:0 0 8px;font-size:12px;color:var(--muted)">At each decision the planner also works out the plain fastest route. When that route reaches gas before the agent would pass, A* rejects it. The ✕ on the floor plan marks where.</p>
+        <ul class="log" id="log"></ul></section>
+    </div>
+    <div class="col">
+      <section class="panel"><div class="panel-head"><h2>Ground floor (GF)</h2><span>indoor boxes + plume at the doors</span></div><canvas id="cGF"></canvas></section>
+      <section class="panel"><div class="panel-head"><h2>First floor (FF)</h2><span>no exits · three stairs down</span></div><canvas id="cFF"></canvas></section>
+    </div>
+  </div>
+
+  <div class="charts">
+    <section class="panel"><div class="panel-head"><h2>Gas at each agent's position</h2><span id="expoSub">ppm, log scale · click to jump</span></div><canvas id="expo"></canvas></section>
+    <section class="panel"><div class="panel-head"><h2>Detectors</h2><span>ppm, log scale · click to jump</span></div><canvas id="chart"></canvas></section>
+  </div>
+
+  <div class="legend" aria-label="Legend">
+    <span class="ramp">H₂S <span><canvas id="rampCv" width="180" height="12"></canvas><span class="ramp-ticks" id="rampTicks"></span></span></span>
+    <span><i style="background: repeating-linear-gradient(45deg, #e8590c 0 2px, transparent 2px 5px)"></i>avoided by A* (≥ avoid level)</span>
+    <span><i style="background:var(--safe)"></i>exit / egress path clean</span>
+    <span><i style="background:var(--danger)"></i>exit / egress path gassed</span>
+    <span><i style="background: repeating-linear-gradient(90deg, var(--danger) 0 3px, transparent 3px 5px)"></i>fastest route A* rejected, ✕ where it meets gas</span>
+    <span>◌ dashed ring on an exit: gas forecast within 60 s · glow round an agent: gas where they stand</span>
+    <span>● agent · - - planned route (A*) · ○ gas-blind agent (Both) · ▲ release · ■ detector · ◯ assembly point</span>
+  </div>
+
+  <section class="panel">
+    <h3>People</h3>
+    <p class="sub" id="ledgerSub"></p>
+    <div class="kpis" id="kpis"></div>
+    <div class="tablewrap"><table>
+      <thead>
+        <tr><th></th><th></th><th></th><th class="grp" colspan="2" id="thLiveGrp">Live</th><th class="grp" colspan="5">Gas-aware A* · end of run</th><th class="grp sepl" colspan="4" id="thBlindGrp">Gas-blind (fastest route)</th></tr>
+        <tr><th>Agent</th><th>Floor</th><th>Now</th><th class="num">ppm here</th><th class="num">Dose so far</th><th>Route</th><th>Exit</th><th class="num">Path ppm</th><th class="num">Peak</th><th class="num">Dose</th>
+          <th class="sepl">Exit</th><th class="num">Path ppm</th><th class="num">Peak</th><th class="num">Dose</th></tr>
+      </thead>
+      <tbody id="ledger"></tbody>
+    </table></div>
+  </section>
+</div>
+
+<script>
+"use strict";
+const D = "__DATA__";
+
+// ------------------------------------------------------------------ data
+function decode(b64, T) {
+  const bin = atob(b64), u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  return new T(u8.buffer);
+}
+const ROWS = D.rows, COLS = D.cols, H = D.h, NN = D.nNodes;
+const GX0 = D.gridOrigin[0], GY0 = D.gridOrigin[1];
+const BOX = D.building.origin[0], BOY = D.building.origin[1];
+const CFLOOR = decode(D.cellFloor, Uint8Array), CR = decode(D.cellR, Int16Array), CC = decode(D.cellC, Int16Array);
+const NODE_OF = decode(D.nodeOf, Int32Array), STAIR_COST = decode(D.stairCost, Float32Array);
+const FLOORS = D.floors.map(f => ({ id: f.id, cat: decode(f.cat, Uint8Array), labels: f.labels }));
+const TIMES = D.t, NT = TIMES.length, DT = D.dt;
+const F = D.field, FIELD = decode(F.data, Uint8Array), FCELLS = F.rows * F.cols;
+const FORECASTS = D.forecast.map(f => ({ t: f.t, q: decode(f.data, Uint8Array) }));
+const TH = D.thresholds, DET_IDS = D.detectorIds, ND = DET_IDS.length;
+const RUNS = {};
+for (const [k, r] of Object.entries(D.runs)) RUNS[k] = { ...r, node: decode(r.nodePpm, Uint8Array), det: decode(r.detPpm, Float32Array),
+  soon: decode(r.nodeSoon, Uint8Array), aPpm: decode(r.agentPpm, Float32Array), aDose: decode(r.agentDose, Float32Array) };
+const agentVal = (run, arr, i, t) => t < TIMES[0] ? 0 : run[arr][i * NT + frameAt(t)];
+const NODE_FLOOR = new Uint8Array(NN), NODE_X = new Float32Array(NN), NODE_Y = new Float32Array(NN);
+{ const cnt = new Uint32Array(NN);
+  for (let s = 0; s < CFLOOR.length; s++) { const u = NODE_OF[s]; NODE_FLOOR[u] = CFLOOR[s]; NODE_X[u] += (CC[s] + 0.5) * D.h + D.gridOrigin[0]; NODE_Y[u] += (CR[s] + 0.5) * D.h + D.gridOrigin[1]; cnt[u]++; }
+  for (let u = 0; u < NN; u++) { NODE_X[u] /= cnt[u]; NODE_Y[u] /= cnt[u]; } }
+const HAS_BLIND = !!RUNS.blind;
+const STATES = ["NORMAL", "ALERTED", "EVACUATING", "SHELTERING", "OUTSIDE", "SAFE", "INCAPACITATED"];
+const AGENT_COLORS = ["#1c7ed6", "#0ca678", "#7048e8", "#1098ad", "#4c6ef5", "#2b8a3e", "#ae3ec9", "#364fc7", "#087f5b", "#6741d9", "#1864ab", "#5c6b73"];
+const CAT_OUTSIDE = 0;
+document.getElementById("eyebrow").textContent =
+  `Scenario ${D.scenario} · ${D.releaseRate} g/s H₂S · A* on the graph-RL navigation graph · ${D.duration} s`;
+document.getElementById("ledeAvoid").textContent = TH.avoid;
+
+// q (uint8, log ppm) <-> ppm
+const LOGR = Math.log10(TH.qMax / TH.qMin);
+const Q2PPM = new Float32Array(256);
+for (let q = 1; q < 256; q++) Q2PPM[q] = TH.qMin * Math.pow(10, (q - 1) / 254 * LOGR);
+const ppmToQ = p => p < TH.qMin ? 0 : Math.max(1, Math.min(255, Math.round(Math.log10(p / TH.qMin) / LOGR * 254 + 1)));
+const Q_AVOID = ppmToQ(TH.avoid);
+
+// gas ramp over log ppm: [ppm, r, g, b, alpha]
+const RAMP = [[0.5, 246, 232, 160, 0.0], [2, 245, 220, 120, 0.28], [10, 240, 180, 41, 0.55], [30, 232, 89, 12, 0.7],
+  [100, 201, 42, 42, 0.8], [500, 134, 46, 156, 0.9]];
+const GAS = [];   // per q: [r, g, b, a(0..255)]
+for (let q = 0; q < 256; q++) {
+  const p = Q2PPM[q];
+  if (q === 0 || p < RAMP[0][0]) { GAS.push([0, 0, 0, 0]); continue; }
+  let k = 0; while (k < RAMP.length - 2 && p > RAMP[k + 1][0]) k++;
+  const a = RAMP[k], b = RAMP[k + 1];
+  const w = Math.max(0, Math.min(1, Math.log(p / a[0]) / Math.log(b[0] / a[0])));
+  GAS.push([0, 1, 2, 3].map(j => j < 3 ? Math.round(a[j + 1] + (b[j + 1] - a[j + 1]) * w) : Math.round(255 * (a[4] + (b[4] - a[4]) * w))));
+}
+{ // legend ramp
+  const cv = document.getElementById("rampCv"), g = cv.getContext("2d"), img = g.createImageData(180, 12);
+  for (let x = 0; x < 180; x++) {
+    const ppm = Math.pow(10, Math.log10(0.6) + x / 179 * (Math.log10(700) - Math.log10(0.6))), c = GAS[ppmToQ(ppm)];
+    for (let y = 0; y < 12; y++) { const o = (y * 180 + x) * 4; img.data.set([c[0], c[1], c[2], Math.max(40, c[3])], o); }
+  }
+  g.putImageData(img, 0, 0);
+  const lo = Math.log10(0.6), hi = Math.log10(700);
+  document.getElementById("rampTicks").innerHTML = [1, 10, 30, 100, "500 ppm"].map(p =>
+    `<span style="left:${(Math.log10(parseFloat(p)) - lo) / (hi - lo) * 100}%">${p}</span>`).join("");
+}
+
+// ------------------------------------------------------------------ time lookups
+const frameAt = t => Math.max(0, Math.min(NT - 1, Math.floor(t / DT + 1e-6) - 1));   // TIMES[i] = (i+1)*DT
+const nodeQ = (run, t, k) => t < TIMES[0] ? 0 : run.node[frameAt(t) * NN + k];
+function stateAt(ag, t) { let s = 0; for (const [ts, st] of ag.states) { if (ts <= t) s = st; else break; } return s; }
+function bisect(arr, t) { let lo = 0, hi = arr.length - 1; if (t < arr[0]) return -1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (arr[m] <= t) lo = m; else hi = m - 1; } return lo; }
+function stepCost(a, b) {
+  if (CFLOOR[a] !== CFLOOR[b]) return STAIR_COST[a];
+  return (CR[a] !== CR[b] && CC[a] !== CC[b] ? Math.SQRT2 : 1) * H / D.v0;
+}
+const cellLocal = s => [(CC[s] + 0.5) * H + GX0, (CR[s] + 0.5) * H + GY0];
+// Where is the agent at time t? {floor, x, y (local)} inside, or {site: true, x, y (site)} outside.
+function poseAt(ag, t) {
+  if (ag.outT.length && t >= ag.outT[0]) {
+    const k = bisect(ag.outT, t), a = ag.outXY[k];
+    if (k >= ag.outT.length - 1) return { site: true, x: a[0], y: a[1] };
+    const b = ag.outXY[k + 1], f = (t - ag.outT[k]) / (ag.outT[k + 1] - ag.outT[k] || 1);
+    return { site: true, x: a[0] + (b[0] - a[0]) * f, y: a[1] + (b[1] - a[1]) * f };
+  }
+  const k = Math.max(0, bisect(ag.traceT, t)), s = ag.traceS[k];
+  let [x, y] = cellLocal(s), floor = CFLOOR[s];
+  if (k + 1 < ag.traceT.length) {               // moving toward the next cell: the move takes its step time, at the end of the gap
+    const s2 = ag.traceS[k + 1], t2 = ag.traceT[k + 1], dur = Math.min(t2 - ag.traceT[k], stepCost(s, s2));
+    const f = (t - (t2 - dur)) / (dur || 1);
+    if (f > 0) {
+      if (CFLOOR[s2] !== floor) { if (f > 0.5) { [x, y] = cellLocal(s2); floor = CFLOOR[s2]; } }
+      else { const [x2, y2] = cellLocal(s2); x += (x2 - x) * f; y += (y2 - y) * f; }
+    }
+  }
+  return { floor, x, y, s, k };
+}
+
+// ------------------------------------------------------------------ drawing setup
+const cvSite = document.getElementById("cSite"), cvF = [document.getElementById("cGF"), document.getElementById("cFF")];
+let C = {};
+const hexRGB = h => { const x = parseInt(h.slice(1), 16); return [x >> 16 & 255, x >> 8 & 255, x & 255]; };
+const PAD = 6;   // m of outdoor ground shown around each floor plan
+const VX0 = GX0 - PAD, VY0 = GY0 - PAD, VW = COLS * H + 2 * PAD, VH = ROWS * H + 2 * PAD;
+let baseImgs = [], gasCv = {}, fieldCv, fcCv;
+
+function readColors() {
+  const cs = getComputedStyle(document.documentElement), v = n => cs.getPropertyValue(n).trim();
+  for (const n of ["paper", "sheet", "ink", "muted", "rule", "wall", "floor", "furniture", "void", "door", "stair", "ground", "grid", "obstacle", "safe", "danger"]) C[n] = v("--" + n);
+  buildBase();
+}
+function buildBase() {
+  const pal = [null, C.wall, C.floor, C.furniture, C.door, C.safe, C.stair, C.void, C.wall, C.danger].map(c => c && hexRGB(c));
+  const sheet = hexRGB(C.sheet);
+  baseImgs = FLOORS.map(fl => {
+    const c = document.createElement("canvas"); c.width = COLS; c.height = ROWS;
+    const g = c.getContext("2d"), img = g.createImageData(COLS, ROWS);
+    for (let r = 0; r < ROWS; r++) for (let col = 0; col < COLS; col++) {
+      const k = fl.cat[r * COLS + col]; if (k === CAT_OUTSIDE) continue;
+      let px = pal[k];
+      if (k === 6 && (r + col) % 2) px = px.map(x => Math.round(x * 0.88 + 30 * 0.12));
+      if (k === 8) px = px.map((x, j) => Math.round(x * 0.5 + sheet[j] * 0.5));
+      const o = ((ROWS - 1 - r) * COLS + col) * 4;
+      img.data[o] = px[0]; img.data[o + 1] = px[1]; img.data[o + 2] = px[2]; img.data[o + 3] = 255;
+    }
+    g.putImageData(img, 0, 0); return c;
+  });
+  for (const rk of Object.keys(RUNS)) gasCv[rk] = FLOORS.map(() => { const c = document.createElement("canvas"); c.width = COLS; c.height = ROWS; return c; });
+  fieldCv = document.createElement("canvas"); fieldCv.width = F.cols; fieldCv.height = F.rows;
+  fcCv = document.createElement("canvas"); fcCv.width = F.cols; fcCv.height = F.rows;
+}
+function sizeCanvases() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const fit = (c, aspect) => { const w = c.clientWidth || 600; c.width = Math.round(w * dpr); c.height = Math.round(w * aspect * dpr); c.style.height = (w * aspect) + "px"; };
+  fit(cvSite, D.site.hgt / D.site.w);
+  for (const c of cvF) fit(c, VH / VW);
+  for (const id of ["cCmpA", "cCmpB"]) fit(document.getElementById(id), (CMP_VIEW.y1 - CMP_VIEW.y0) / (CMP_VIEW.x1 - CMP_VIEW.x0));
+  for (const id of ["chart", "expo"]) { const ch = document.getElementById(id); ch.width = Math.round(ch.clientWidth * dpr); ch.height = Math.round(230 * dpr); }
+}
+
+// field image at time t: blend the two stored frames around t (log space)
+function paintField(t) {
+  const g = fieldCv.getContext("2d"), img = g.createImageData(F.cols, F.rows);
+  const pos = t / (DT * F.every) - 1, j0 = Math.max(0, Math.min(F.n - 1, Math.floor(pos))), j1 = Math.min(F.n - 1, j0 + 1);
+  const w = pos < 0 ? 0 : Math.max(0, Math.min(1, pos - j0)), scale = pos < 0 ? Math.max(0, 1 + pos) : 1;
+  const a = j0 * FCELLS, b = j1 * FCELLS;
+  for (let i = 0; i < FCELLS; i++) {
+    const q = Math.round((FIELD[a + i] * (1 - w) + FIELD[b + i] * w) * scale), c = GAS[q];
+    if (!c[3]) continue;
+    const r = Math.floor(i / F.cols), col = i % F.cols, o = ((F.rows - 1 - r) * F.cols + col) * 4;
+    img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2]; img.data[o + 3] = c[3];
+  }
+  g.putImageData(img, 0, 0);
+}
+function currentForecast(t) { let f = null; for (const x of FORECASTS) { if (x.t <= t) f = x; else break; } return f; }
+function paintGasFloors(rk, t) {
+  const run = RUNS[rk], imgs = gasCv[rk].map(c => c.getContext("2d").createImageData(COLS, ROWS));
+  const base = t < TIMES[0] ? -1 : frameAt(t) * NN;
+  if (base >= 0) for (let s = 0; s < CFLOOR.length; s++) {
+    const q = run.node[base + NODE_OF[s]]; if (!q) continue;
+    const c = GAS[q]; if (!c[3]) continue;
+    const r = CR[s], col = CC[s], o = ((ROWS - 1 - r) * COLS + col) * 4, d = imgs[CFLOOR[s]].data;
+    const hatched = q >= Q_AVOID && ((r + col) % 4 === 0);
+    d[o] = hatched ? Math.round(c[0] * 0.55) : c[0]; d[o + 1] = hatched ? Math.round(c[1] * 0.45) : c[1];
+    d[o + 2] = hatched ? Math.round(c[2] * 0.45) : c[2]; d[o + 3] = hatched ? 255 : c[3];
+  }
+  gasCv[rk].forEach((c, f) => c.getContext("2d").putImageData(imgs[f], 0, 0));
+}
+
+// ------------------------------------------------------------------ shared marks
+function drawAgentDot(g, x, y, r, color, label, hollow) {
+  g.lineWidth = Math.max(1.5, r * 0.32);
+  if (hollow) { g.strokeStyle = color; g.fillStyle = C.sheet; g.setLineDash([]); }
+  else { g.fillStyle = color; g.strokeStyle = C.sheet; }
+  g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); g.stroke();
+  g.fillStyle = hollow ? color : "#fff"; g.font = `600 ${Math.max(8, r * 1.15)}px "IBM Plex Mono", monospace`;
+  g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(label, x, y + 0.5);
+}
+let focus = -1;   // agent index being followed, -1 = everyone
+const visible = ag => focus < 0 || ag.i === focus;
+const runsShown = () => (mode === "both" || focus >= 0) && HAS_BLIND ? [["aware", false], ["blind", true]]
+  : [[mode === "blind" && HAS_BLIND ? "blind" : "aware", false]];
+const gasRunKey = () => mode === "blind" && HAS_BLIND ? "blind" : "aware";
+const gasRun = () => RUNS[gasRunKey()];
+
+// ------------------------------------------------------------------ site view
+const FULL_VIEW = { x0: 0, y0: 0, x1: D.site.w, y1: D.site.hgt };
+const CMP_VIEW = { x0: 6, y0: 6, x1: 154, y1: 134 };
+function drawSite(t) {
+  drawScene(cvSite, t, gasRunKey(), { view: FULL_VIEW, detectors: true, wind: true, runs: runsShown(), routes: false });
+}
+function drawCompare(t) {
+  drawScene(document.getElementById("cCmpA"), t, "aware", { view: CMP_VIEW, runs: [["aware", false]], routes: true, wind: true });
+  if (HAS_BLIND) drawScene(document.getElementById("cCmpB"), t, "blind", { view: CMP_VIEW, runs: [["blind", false]], routes: true, wind: true });
+}
+function drawScene(cv, t, rk, o) {
+  const g = cv.getContext("2d"), W = cv.width, Hh = cv.height, v = o.view, ss = W / (v.x1 - v.x0);
+  const X = x => (x - v.x0) * ss, Y = y => Hh - (y - v.y0) * ss;
+  g.clearRect(0, 0, W, Hh);
+  g.fillStyle = C.ground; g.fillRect(0, 0, W, Hh);
+  g.strokeStyle = C.grid; g.lineWidth = 1;
+  for (let x = 0; x <= D.site.w; x += 10) { g.beginPath(); g.moveTo(X(x), 0); g.lineTo(X(x), Hh); g.stroke(); }
+  for (let y = 0; y <= D.site.hgt; y += 10) { g.beginPath(); g.moveTo(0, Y(y)); g.lineTo(W, Y(y)); g.stroke(); }
+  if (o.routes) { g.fillStyle = C.ground; g.globalAlpha = 0.35; g.fillRect(0, 0, W, Hh); g.globalAlpha = 1; }
+  g.fillStyle = C.obstacle; for (const o of D.site.obstacles) g.fillRect(X(o.x0), Y(o.y1), (o.x1 - o.x0) * ss, (o.y1 - o.y0) * ss);
+
+  // plume, then the building on top of it (GF plan + indoor box levels: the
+  // contrast between the two is what shelter-in-place buys)
+  g.imageSmoothingEnabled = true; g.imageSmoothingQuality = "high";
+  g.drawImage(fieldCv, X(F.x0), Y(F.y0 + F.rows * F.h), F.cols * F.h * ss, F.rows * F.h * ss);
+  if (showForecast()) drawForecastStipple(g, t, X, Y, ss);
+  g.imageSmoothingEnabled = false;
+  const bx = X(BOX + GX0), by = Y(BOY + GY0 + ROWS * H), bw = COLS * H * ss, bh = ROWS * H * ss;
+  g.drawImage(baseImgs[0], bx, by, bw, bh); g.drawImage(gasCv[rk][0], bx, by, bw, bh);
+
+  // egress paths and APs
+  const run = RUNS[rk];
+  for (const e of D.site.exits) {
+    const q = nodeQ(run, t, e.node), bad = q >= Q_AVOID;
+    g.strokeStyle = bad ? C.danger : C.safe; g.lineWidth = Math.max(1.5, ss * 0.45); g.setLineDash([ss * 1.6, ss * 1.2]);
+    g.beginPath(); g.moveTo(X(e.path[0][0]), Y(e.path[0][1])); g.lineTo(X(e.path[1][0]), Y(e.path[1][1])); g.stroke(); g.setLineDash([]);
+  }
+  g.font = `500 ${Math.max(10, ss * 3.2)}px "IBM Plex Mono", monospace`; g.textAlign = "center"; g.textBaseline = "middle";
+  for (const ap of D.site.aps) {
+    g.strokeStyle = C.ink; g.lineWidth = Math.max(1.5, ss * 0.35); g.globalAlpha = 0.75;
+    g.beginPath(); g.arc(X(ap.x), Y(ap.y), ap.d / 2 * ss, 0, Math.PI * 2); g.stroke(); g.globalAlpha = 1;
+    const above = Y(ap.y) - ap.d / 2 * ss - 9, below = Y(ap.y) + ap.d / 2 * ss + 9;
+    g.fillStyle = C.ink; g.fillText(ap.id, X(ap.x), !o.routes ? Y(ap.y) : above > 12 ? above : below);
+  }
+  for (const e of D.site.exits) {
+    const q = nodeQ(run, t, e.node), bad = q >= Q_AVOID;
+    g.fillStyle = bad ? C.danger : C.safe; g.beginPath(); g.arc(X(e.x), Y(e.y), Math.max(4, ss * 1.4), 0, Math.PI * 2); g.fill();
+  }
+  // source + detectors
+  for (const s of D.site.sources) {
+    const x = X(s.x), y = Y(s.y), r = Math.max(7, ss * 2.6);
+    g.fillStyle = C.danger; g.beginPath(); g.moveTo(x, y - r); g.lineTo(x + r * 0.9, y + r * 0.6); g.lineTo(x - r * 0.9, y + r * 0.6); g.closePath(); g.fill();
+    const lab = `${s.id} · ${s.rate} g/s`, right = x + r + 4 + g.measureText(lab).width < W;
+    g.fillStyle = C.ink; g.textAlign = right ? "left" : "right"; g.fillText(lab, right ? x + r + 4 : x - r - 4, y + (right ? 0 : r + 8));
+  }
+  const fi = frameAt(t);
+  if (o.detectors) D.site.detectors.forEach((d, i) => {
+    const v = t < TIMES[0] ? 0 : run.det[fi * ND + i], q = ppmToQ(v), c = GAS[q], x = X(d.x), y = Y(d.y), r = Math.max(4, ss * 1.3);
+    g.fillStyle = q && c[3] ? `rgb(${c[0]},${c[1]},${c[2]})` : C.sheet; g.strokeStyle = C.ink; g.lineWidth = 1.2;
+    g.fillRect(x - r, y - r, 2 * r, 2 * r); g.strokeRect(x - r, y - r, 2 * r, 2 * r);
+    if (!d.indoor) { g.fillStyle = C.muted; g.textAlign = "left"; g.font = `400 ${Math.max(9, ss * 2.4)}px "IBM Plex Mono", monospace`; g.fillText(d.id, x + r + 3, y); }
+  });
+  if (o.routes) {   // every agent's complete route, start to assembly point
+    const used = {};
+    for (const ag of run.agents) if (ag.exit) used[ag.exit] = (used[ag.exit] || 0) + 1;
+    g.font = `700 ${Math.max(11, ss * 3.2)}px "IBM Plex Mono", monospace`; g.textBaseline = "middle";
+    const placed = [];
+    for (const e of D.site.exits) {
+      if (!used[e.name]) continue;
+      const out = [e.path[1][0] - e.x, e.path[1][1] - e.y], n = Math.hypot(...out), ux = out[0] / n, uy = out[1] / n;
+      const lab = `${e.name} ×${used[e.name]}`, w = g.measureText(lab).width + 10, hh = 20;
+      let lx = X(e.x + ux * 6), ly = Y(e.y + uy * 6);
+      if (Math.abs(uy) > Math.abs(ux)) lx += w / 2 + 8; else ly -= hh / 2 + 6;   // beside the walk, not on it
+      for (let k = 0; k < 6 && placed.some(r => Math.abs(r[0] - lx) < (r[2] + w) / 2 && Math.abs(r[1] - ly) < hh); k++) ly -= hh + 2;
+      placed.push([lx, ly, w]);
+      g.fillStyle = C.sheet; g.globalAlpha = 0.92; g.fillRect(lx - w / 2, ly - hh / 2, w, hh); g.globalAlpha = 1;
+      g.fillStyle = C.ink; g.textAlign = "center"; g.fillText(lab, lx, ly);
+    }
+    for (const ag of run.agents) if (!visible(ag)) drawFullRoute(g, ag, X, Y, ss, AGENT_COLORS[ag.i % 12], 0.12);
+    for (const ag of run.agents) if (visible(ag)) drawFullRoute(g, ag, X, Y, ss, AGENT_COLORS[ag.i % 12], 0.9);
+  }
+  // agents: outdoors walking, and GF/FF inside as small dots
+  for (const [rk2, hollow] of o.runs) for (const ag of RUNS[rk2].agents) {
+    if (!visible(ag)) continue;
+    const p = poseAt(ag, t);
+    const [x, y] = p.site ? [p.x, p.y] : [p.x + BOX, p.y + BOY];
+    const big = p.site || o.routes || focus >= 0;
+    drawAgentDot(g, X(x), Y(y), big ? Math.max(6, ss * 1.8) : Math.max(3.5, ss * 1.0),
+      hollow && focus >= 0 ? C.danger : AGENT_COLORS[ag.i % 12], big ? String(ag.i + 1) : "", hollow);
+  }
+  if (o.wind) drawWind(g, cv, t, W, Hh);
+}
+// One agent's whole path in site coordinates: ground floor solid, first floor
+// dotted (the plan view stacks both floors), then the outdoor walk.
+function drawFullRoute(g, ag, X, Y, ss, color, alpha, dashGF = []) {
+  const cells = ag.traceS; if (!cells.length) return;
+  g.strokeStyle = color; g.globalAlpha = alpha; g.lineJoin = "round"; g.lineCap = "round";
+  let i = 0;
+  while (i < cells.length) {
+    const fl = CFLOOR[cells[i]]; let j = i;
+    g.beginPath();
+    for (; j < cells.length && CFLOOR[cells[j]] === fl; j++) { const [x, y] = cellLocal(cells[j]); j === i ? g.moveTo(X(x + BOX), Y(y + BOY)) : g.lineTo(X(x + BOX), Y(y + BOY)); }
+    g.lineWidth = fl === 0 ? Math.max(2, ss * 0.6) : Math.max(1.6, ss * 0.45);
+    g.setLineDash(fl === 0 ? dashGF : [Math.max(1, ss * 0.3), Math.max(3, ss * 0.9)]);
+    g.stroke();
+    i = j;
+  }
+  if (ag.outXY.length) {
+    const [lx, ly] = cellLocal(cells[cells.length - 1]);
+    g.beginPath(); g.moveTo(X(lx + BOX), Y(ly + BOY));
+    for (const [x, y] of ag.outXY) g.lineTo(X(x), Y(y));
+    g.lineWidth = Math.max(2, ss * 0.6); g.setLineDash(dashGF); g.stroke();
+  }
+  g.setLineDash([]); g.globalAlpha = 1;
+  const [sx, sy] = cellLocal(cells[0]);   // start: open ring
+  g.strokeStyle = color; g.globalAlpha = Math.min(1, alpha + 0.1); g.lineWidth = 2;
+  g.beginPath(); g.arc(X(sx + BOX), Y(sy + BOY), Math.max(4, ss * 1.2), 0, Math.PI * 2); g.stroke(); g.globalAlpha = 1;
+}
+function drawForecastStipple(g, t, X, Y, ss) {
+  const fc = currentForecast(t); if (!fc) return;
+  g.fillStyle = C.ink; g.globalAlpha = 0.55;
+  const r = Math.max(1, ss * 0.35);
+  for (let i = 0; i < FCELLS; i++) {
+    if (fc.q[i] < Q_AVOID) continue;
+    const row = Math.floor(i / F.cols), col = i % F.cols;
+    if ((row + col) % 2) continue;
+    g.beginPath(); g.arc(X(F.x0 + (col + 0.5) * F.h), Y(F.y0 + (row + 0.5) * F.h), r, 0, Math.PI * 2); g.fill();
+  }
+  g.globalAlpha = 1;
+}
+function drawWind(g, cv, t, W, Hh) {
+  const [u, from] = D.wind[frameAt(t)], a = (from + 180) * Math.PI / 180;   // direction the air goes
+  const dpr = W / (cv.clientWidth || W), cx = W - 46 * dpr, cy = 46 * dpr, L = 26 * dpr;
+  const dx = Math.sin(a) * L, dy = -Math.cos(a) * L;
+  g.fillStyle = C.sheet; g.globalAlpha = 0.9; g.beginPath(); g.arc(cx, cy, 38 * dpr, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1;
+  g.strokeStyle = C.rule; g.lineWidth = dpr; g.stroke();
+  g.strokeStyle = C.ink; g.fillStyle = C.ink; g.lineWidth = 2.5 * dpr;
+  g.beginPath(); g.moveTo(cx - dx, cy - dy); g.lineTo(cx + dx * 0.7, cy + dy * 0.7); g.stroke();
+  const hx = cx + dx, hy = cy + dy, n = Math.hypot(dx, dy), ux = dx / n, uy = dy / n;
+  g.beginPath(); g.moveTo(hx, hy); g.lineTo(hx - ux * 11 * dpr - uy * 6 * dpr, hy - uy * 11 * dpr + ux * 6 * dpr);
+  g.lineTo(hx - ux * 11 * dpr + uy * 6 * dpr, hy - uy * 11 * dpr - ux * 6 * dpr); g.closePath(); g.fill();
+  g.font = `500 ${10 * dpr}px "IBM Plex Mono", monospace`; g.textAlign = "center"; g.textBaseline = "top";
+  g.fillText(`${u.toFixed(1)} m/s`, cx, cy + 40 * dpr);
+  g.fillStyle = C.muted; g.textBaseline = "bottom"; g.fillText("N", cx, cy - 39 * dpr);
+}
+
+// ------------------------------------------------------------------ floor views
+function drawFloor(f, t) {
+  const cv = cvF[f], g = cv.getContext("2d"), W = cv.width, Hh = cv.height, sc = W / VW;
+  const X = x => (x - VX0) * sc, Y = y => Hh - (y - VY0) * sc;
+  g.clearRect(0, 0, W, Hh);
+  g.fillStyle = C.ground; g.fillRect(0, 0, W, Hh);
+  if (f === 0) {   // plume at the doors (GF only: FF has no doors to outside)
+    g.imageSmoothingEnabled = true;
+    g.drawImage(fieldCv, X(F.x0 - BOX), Y(F.y0 - BOY + F.rows * F.h), F.cols * F.h * sc, F.rows * F.h * sc);
+  }
+  g.imageSmoothingEnabled = false;
+  const gx = X(GX0), gy = Y(GY0 + ROWS * H), gw = COLS * H * sc, gh = ROWS * H * sc;
+  g.drawImage(baseImgs[f], gx, gy, gw, gh);
+  g.drawImage(gasCv[gasRunKey()][f], gx, gy, gw, gh);
+
+  g.font = `500 ${Math.max(9, sc * 1.5)}px "IBM Plex Mono", monospace`; g.textAlign = "center"; g.textBaseline = "middle";
+  g.fillStyle = C.muted; g.globalAlpha = 0.75;
+  for (const l of FLOORS[f].labels) g.fillText(l.id, X((l.c + 0.5) * H + GX0), Y((l.r + 0.5) * H + GY0));
+  g.globalAlpha = 1;
+
+  if (f === 0) {   // exits with their egress-path level
+    const run = gasRun();
+    for (const e of D.site.exits) {
+      const q = nodeQ(run, t, e.node), ppm = Q2PPM[q], bad = q >= Q_AVOID, x = X(e.x - BOX), y = Y(e.y - BOY);
+      g.fillStyle = bad ? C.danger : C.safe; g.beginPath(); g.arc(x, y, Math.max(5, sc * 1.6), 0, Math.PI * 2); g.fill();
+      g.strokeStyle = C.sheet; g.lineWidth = 2; g.stroke();
+      const soon = t < TIMES[0] ? 0 : run.soon[frameAt(t) * NN + e.node];
+      if (!bad && soon >= Q_AVOID) {   // clean now, gas forecast within 60 s
+        g.strokeStyle = C.danger; g.lineWidth = Math.max(2, sc * 0.35); g.setLineDash([sc * 0.8, sc * 0.6]);
+        g.beginPath(); g.arc(x, y, Math.max(9, sc * 2.8), 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
+      }
+      const lx = Math.min(Math.max(x, 40), W - 40), ly = e.y - BOY < 1 ? y + sc * 3.6 : e.y - BOY > ROWS * H - 6 ? y - sc * 3.6 : y - sc * 3.2;
+      g.font = `600 ${Math.max(10, sc * 1.7)}px "IBM Plex Mono", monospace`;
+      const lab = `${e.name} ${q ? (ppm < 10 ? ppm.toFixed(1) : Math.round(ppm)) : 0} ppm`, lw2 = g.measureText(lab).width + 8;
+      g.fillStyle = C.sheet; g.globalAlpha = 0.9; g.fillRect(lx - lw2 / 2, ly - 10, lw2, 20); g.globalAlpha = 1;
+      g.fillStyle = bad ? C.danger : C.safe; g.fillText(lab, lx, ly);
+    }
+  }
+
+  const lw = Math.max(1.5, sc * 0.32);
+  if (focus >= 0) {   // one person: both complete routes, side by side on the plan
+    // gas-blind drawn wide underneath, gas-aware on top: where both walk the
+    // same cells the line shows red edges, where they split you see each alone
+    if (HAS_BLIND) polyline(g, RUNS.blind.agents[focus].traceS, 0, RUNS.blind.agents[focus].traceS.length, f, X, Y, C.danger, lw * 3.2, [], 0.85);
+    polyline(g, RUNS.aware.agents[focus].traceS, 0, RUNS.aware.agents[focus].traceS.length, f, X, Y, AGENT_COLORS[focus % 12], lw * 1.4, [], 1);
+  }
+  for (const [rk, hollow] of runsShown()) for (const ag of RUNS[rk].agents) {
+    if (focus >= 0) break;
+    const col = AGENT_COLORS[ag.i % 12], st = stateAt(ag, t), p = poseAt(ag, t);
+    // trail (cells walked so far)
+    const k = p.site ? ag.traceS.length - 1 : p.k;
+    polyline(g, ag.traceS, 0, k + 1, f, X, Y, col, Math.max(1, sc * 0.2), hollow ? [sc * 0.6, sc * 0.6] : [], 0.45);
+    // current plan (A* route), and the plan it just replaced
+    if (showRoutes() && (st === 2 || st === 3) && !p.site) {
+      const pi = bisectPlans(ag.plans, t);
+      if (pi >= 0) {
+        const cells = ag.plans[pi][2], start = Math.max(0, cells.indexOf(p.s));
+        polyline(g, cells, start, cells.length, f, X, Y, col, lw, [sc * 1.2, sc * 0.9], hollow ? 0.55 : 0.95);
+        if (pi > 0 && t - ag.plans[pi][0] < 4) {
+          const old = ag.plans[pi - 1][2], os = Math.max(0, old.indexOf(p.s));
+          polyline(g, old, os, old.length, f, X, Y, C.danger, Math.max(1, sc * 0.22), [sc * 0.5, sc * 0.5], 0.8 * (1 - (t - ag.plans[pi][0]) / 4));
+        }
+      }
+    }
+  }
+  if (showWhy() && mode !== "blind") drawWhy(g, f, t, X, Y, sc);
+  for (const [rk, hollow] of runsShown()) for (const ag of RUNS[rk].agents) {
+    if (!visible(ag)) continue;
+    const p = poseAt(ag, t); if (p.site || p.floor !== f) continue;
+    const st = stateAt(ag, t), r = Math.max(5, sc * 1.15);
+    const here = agentVal(RUNS[rk], "aPpm", ag.i, t), cq = GAS[ppmToQ(here)];
+    if (here >= 0.5 && cq[3]) { g.fillStyle = `rgba(${cq[0]},${cq[1]},${cq[2]},${Math.min(1, cq[3] / 255 + 0.2)})`; g.beginPath(); g.arc(X(p.x), Y(p.y), r * 2.1, 0, Math.PI * 2); g.fill(); }
+    drawAgentDot(g, X(p.x), Y(p.y), r, hollow && focus >= 0 ? C.danger : AGENT_COLORS[ag.i % 12], String(ag.i + 1), hollow);
+    if (st === 3) { g.strokeStyle = AGENT_COLORS[ag.i % 12]; g.setLineDash([2, 3]); g.lineWidth = 1.5; g.beginPath(); g.arc(X(p.x), Y(p.y), r * 1.9, 0, Math.PI * 2); g.stroke(); g.setLineDash([]); }
+    if (st === 6) { g.strokeStyle = C.danger; g.lineWidth = 2.5; g.beginPath(); g.moveTo(X(p.x) - r, Y(p.y) - r); g.lineTo(X(p.x) + r, Y(p.y) + r); g.moveTo(X(p.x) + r, Y(p.y) - r); g.lineTo(X(p.x) - r, Y(p.y) + r); g.stroke(); }
+  }
+}
+// The fastest route A* turned down at each agent's latest decision, cut at
+// the first node that would be gassed when the agent got there, with a ✕.
+function latestDecision(i, t) {
+  let d = null; for (const x of RUNS.aware.decisions) { if (x.t > t + 1e-6) break; if (x.agent === i) d = x; } return d;
+}
+function drawWhy(g, f, t, X, Y, sc) {
+  const marks = new Map();
+  for (const ag of RUNS.aware.agents) {
+    if (!visible(ag)) continue;
+    const st = stateAt(ag, t); if (st !== 2 && st !== 3) continue;
+    const d = latestDecision(ag.i, t); if (!d || !d.block) continue;
+    const cells = d.fastestCells; let end = cells.length;
+    for (let i = 0; i < cells.length; i++) if (NODE_OF[cells[i]] === d.block.node) { end = i + 1; break; }
+    const age = t - d.t, alpha = age < 6 ? 0.95 : 0.4;
+    polyline(g, cells, 0, end, f, X, Y, C.danger, Math.max(1.5, sc * 0.3), [sc * 0.7, sc * 0.5], alpha);
+    const m = marks.get(d.block.node);
+    if (!m || d.block.ppm > m.ppm) marks.set(d.block.node, { ...d.block, cell: cells[end - 1], alpha: Math.max(alpha, m ? m.alpha : 0) });
+  }
+  for (const m of marks.values()) {
+    let x, y, fl;
+    const ex = D.site.exits.find(e => e.node === m.node);
+    if (ex) { x = ex.x - BOX; y = ex.y - BOY; fl = 0; } else { x = NODE_X[m.node]; y = NODE_Y[m.node]; fl = NODE_FLOOR[m.node]; }
+    if (fl !== f) continue;
+    const px = X(x), py = Y(y), r = Math.max(7, sc * 2.0);
+    g.globalAlpha = m.alpha; g.strokeStyle = C.danger; g.lineWidth = Math.max(3, sc * 0.55);
+    g.beginPath(); g.moveTo(px - r, py - r); g.lineTo(px + r, py + r); g.moveTo(px + r, py - r); g.lineTo(px - r, py + r); g.stroke();
+    g.font = `600 ${Math.max(10, sc * 1.55)}px "IBM Plex Mono", monospace`; g.textAlign = "center"; g.textBaseline = "middle";
+    const lab = `${Math.round(m.ppm)} ppm at ETA`, w = g.measureText(lab).width + 8;
+    const lx = px + r + 6 + w > g.canvas.width ? px - r - 6 - w / 2 : px + r + 6 + w / 2;
+    g.globalAlpha = Math.max(0.9, m.alpha); g.fillStyle = C.sheet; g.fillRect(lx - w / 2, py - 9, w, 18); g.fillStyle = C.danger; g.fillText(lab, lx, py);
+    g.globalAlpha = 1;
+  }
+}
+function bisectPlans(plans, t) { let k = -1; for (let i = 0; i < plans.length; i++) { if (plans[i][0] <= t + 1e-6) k = i; else break; } return k; }
+function polyline(g, cells, i0, i1, f, X, Y, color, lw, dash, alpha) {
+  g.strokeStyle = color; g.lineWidth = lw; g.setLineDash(dash); g.globalAlpha = alpha; g.lineJoin = "round"; g.lineCap = "round";
+  let open = false; g.beginPath();
+  for (let i = i0; i < i1; i++) {
+    const s = cells[i]; if (CFLOOR[s] !== f) { open = false; continue; }
+    const [x, y] = cellLocal(s);
+    if (!open) { g.moveTo(X(x), Y(y)); open = true; } else g.lineTo(X(x), Y(y));
+  }
+  g.stroke(); g.setLineDash([]); g.globalAlpha = 1;
+}
+
+// ------------------------------------------------------------------ detector chart
+const DET_COLORS = ["#3d7ea6", "#6a4c93", "#8a6d3b", "#2f7f6f", "#5b6970", "#a3477a", "#4f5d9a", "#7a7f2a"];
+function drawChart(t) {
+  const cv = document.getElementById("chart"), g = cv.getContext("2d"), dpr = cv.width / (cv.clientWidth || 1), W = cv.width, Hh = cv.height;
+  g.clearRect(0, 0, W, Hh);
+  const padL = 46 * dpr, padR = 70 * dpr, padT = 10 * dpr, padB = 24 * dpr, yMin = -1, yMax = 3;
+  const X = s => padL + (W - padL - padR) * s / D.duration;
+  const Y = p => padT + (Hh - padT - padB) * (1 - (Math.log10(Math.max(p, 0.1)) - yMin) / (yMax - yMin));
+  const run = gasRun();
+  // wind-shift band
+  let s0 = null;
+  for (let i = 1; i < NT; i++) {
+    const turning = Math.abs(D.wind[i][1] - D.wind[i - 1][1]) > 0.05;
+    if (turning && s0 === null) s0 = TIMES[i - 1];
+    if ((!turning || i === NT - 1) && s0 !== null) {
+      g.fillStyle = C.rule; g.globalAlpha = 0.55; g.fillRect(X(s0), padT, X(TIMES[i - 1]) - X(s0), Hh - padT - padB); g.globalAlpha = 1;
+      g.fillStyle = C.muted; g.font = `${10 * dpr}px "IBM Plex Mono", monospace`; g.textAlign = "left"; g.textBaseline = "bottom";
+      g.fillText("wind veers", X(s0) + 3 * dpr, Hh - padB - 3 * dpr); s0 = null;
+    }
+  }
+  g.font = `${10.5 * dpr}px "IBM Plex Mono", monospace`; g.strokeStyle = C.rule; g.lineWidth = dpr; g.fillStyle = C.muted;
+  g.textAlign = "right"; g.textBaseline = "middle";
+  for (const p of [0.1, 1, 10, 100, 1000]) { const y = Y(p); g.beginPath(); g.moveTo(padL, y); g.lineTo(W - padR, y); g.stroke(); g.fillText(String(p), padL - 6 * dpr, y); }
+  g.textAlign = "center"; g.textBaseline = "top";
+  for (let s = 0; s <= D.duration; s += 30) g.fillText(s + " s", X(s), Hh - padB + 6 * dpr);
+  for (const [p, col, lab] of [[TH.alarm, C.danger, "alarm " + TH.alarm], [TH.warning, "#c99a1c", "warning " + TH.warning]]) {
+    g.strokeStyle = col; g.setLineDash([5 * dpr, 4 * dpr]); g.lineWidth = 1.3 * dpr; g.beginPath(); g.moveTo(padL, Y(p)); g.lineTo(W - padR, Y(p)); g.stroke(); g.setLineDash([]);
+    g.fillStyle = col; g.textAlign = "left"; g.textBaseline = "middle"; g.fillText(lab, W - padR + 4 * dpr, Y(p));
+  }
+  const alarmT = run.summary.alarm_t;
+  if (alarmT !== null) {
+    g.strokeStyle = C.danger; g.lineWidth = 1.5 * dpr; g.beginPath(); g.moveTo(X(alarmT), padT); g.lineTo(X(alarmT), Hh - padB); g.stroke();
+    g.fillStyle = C.danger; g.textAlign = "left"; g.textBaseline = "top"; g.fillText(`EMERGENCY ${alarmT.toFixed(0)} s`, X(alarmT) + 4 * dpr, padT + 14 * dpr);
+  }
+  for (let d = 0; d < ND; d++) {
+    g.strokeStyle = DET_COLORS[d % DET_COLORS.length]; g.lineWidth = (DET_IDS[d] === run.summary.alarm_detector ? 2.2 : 1.3) * dpr;
+    g.beginPath();
+    for (let i = 0; i < NT; i++) { const x = X(TIMES[i]), y = Y(run.det[i * ND + d]); i ? g.lineTo(x, y) : g.moveTo(x, y); }
+    g.stroke();
+    const last = run.det[(NT - 1) * ND + d];
+    g.fillStyle = DET_COLORS[d % DET_COLORS.length]; g.textAlign = "left"; g.textBaseline = "middle";
+    g.fillText(DET_IDS[d], W - padR + 4 * dpr, Math.min(Hh - padB, Math.max(padT, Y(last) + (d % 2 ? 5 : -5) * dpr)));
+  }
+  g.strokeStyle = C.ink; g.lineWidth = 1.5 * dpr; g.beginPath(); g.moveTo(X(t), padT); g.lineTo(X(t), Hh - padB); g.stroke();
+}
+function drawExpo(t) {
+  const cv = document.getElementById("expo"), g = cv.getContext("2d"), dpr = cv.width / (cv.clientWidth || 1), W = cv.width, Hh = cv.height;
+  g.clearRect(0, 0, W, Hh);
+  const padL = 46 * dpr, padR = 70 * dpr, padT = 10 * dpr, padB = 24 * dpr, yMin = -1, yMax = 3;
+  const X = s => padL + (W - padL - padR) * s / D.duration;
+  const Y = p => padT + (Hh - padT - padB) * (1 - (Math.log10(Math.max(p, 0.1)) - yMin) / (yMax - yMin));
+  g.font = `${10.5 * dpr}px "IBM Plex Mono", monospace`; g.strokeStyle = C.rule; g.lineWidth = dpr; g.fillStyle = C.muted;
+  g.textAlign = "right"; g.textBaseline = "middle";
+  for (const p of [0.1, 1, 10, 100, 1000]) { const y = Y(p); g.beginPath(); g.moveTo(padL, y); g.lineTo(W - padR, y); g.stroke(); g.fillText(String(p), padL - 6 * dpr, y); }
+  g.textAlign = "center"; g.textBaseline = "top";
+  for (let s = 0; s <= D.duration; s += 30) g.fillText(s + " s", X(s), Hh - padB + 6 * dpr);
+  g.strokeStyle = C.danger; g.setLineDash([5 * dpr, 4 * dpr]); g.lineWidth = 1.3 * dpr; g.beginPath(); g.moveTo(padL, Y(TH.avoid)); g.lineTo(W - padR, Y(TH.avoid)); g.stroke(); g.setLineDash([]);
+  g.fillStyle = C.danger; g.textAlign = "left"; g.textBaseline = "middle"; g.fillText(`avoid ${TH.avoid}`, W - padR + 4 * dpr, Y(TH.avoid));
+  const shown = (mode === "both" || focus >= 0) && HAS_BLIND ? [["aware", []], ["blind", [4 * dpr, 3 * dpr]]] : [[mode === "blind" && HAS_BLIND ? "blind" : "aware", []]];
+  const iEnd = Math.max(0, Math.min(NT - 1, frameAt(t)));
+  for (const [rk, dash] of shown) {
+    const run = RUNS[rk];
+    run.agents.forEach((ag, i) => {
+      if (!visible(ag)) return;
+      g.strokeStyle = focus >= 0 && rk === "blind" ? C.danger : AGENT_COLORS[i % 12]; g.lineWidth = (focus >= 0 ? 2.2 : 1.5) * dpr; g.setLineDash(dash); g.beginPath();
+      for (let k = 0; k <= iEnd; k++) { const x = X(TIMES[k]), y = Y(run.aPpm[i * NT + k]); k ? g.lineTo(x, y) : g.moveTo(x, y); }
+      g.stroke(); g.setLineDash([]);
+    });
+  }
+  g.strokeStyle = C.ink; g.lineWidth = 1.5 * dpr; g.beginPath(); g.moveTo(X(t), padT); g.lineTo(X(t), Hh - padB); g.stroke();
+  const tot = rk => RUNS[rk].agents.reduce((a, _, i) => a + agentVal(RUNS[rk], "aDose", i, t), 0);
+  document.getElementById("expoSub").textContent = `ppm, log scale · total dose so far: aware ${fmtDose(tot("aware"))}` +
+    (HAS_BLIND ? ` · blind ${fmtDose(tot("blind"))}` : "") + " ppm²·min";
+}
+for (const id of ["chart", "expo"]) document.getElementById(id).addEventListener("click", ev => {
+  const cv = ev.currentTarget, r = cv.getBoundingClientRect(), padL = 46, padR = 70;
+  setTime((ev.clientX - r.left - padL) / (r.width - padL - padR) * D.duration);
+});
+
+// ------------------------------------------------------------------ status + ledger
+const fmt1 = v => v === null || v === undefined ? "—" : v < 10 ? v.toFixed(1) : Math.round(v).toString();
+const fmtDose = v => v < 0.05 ? "0" : v < 10 ? v.toFixed(1) : Math.round(v).toLocaleString();
+function statusChip(ag, t) {
+  const st = stateAt(ag, t);
+  switch (st) {
+    case 0: return `<span class="chip idle">At desk</span>`;
+    case 1: return `<span class="chip warn">Pre-movement</span>`;
+    case 2: return `<span class="chip info">Evacuating</span>`;
+    case 3: return `<span class="chip warn">Sheltering, door shut</span>`;
+    case 4: return `<span class="chip info">Walking to ${ag.ap}</span>`;
+    case 5: return `<span class="chip ok">Safe at ${ag.ap}</span>`;
+    default: return `<span class="chip bad">Incapacitated</span>`;
+  }
+}
+function routeSoFar(ag, t) {
+  const p = poseAt(ag, t), k = p.site ? ag.traceS.length - 1 : p.k, parts = [];
+  for (let i = 0; i <= k; i++) {
+    const n = D.nodes[NODE_OF[ag.traceS[i]]];
+    if (n.kind < 2 || n.name.includes("-fd-")) continue;
+    if (parts[parts.length - 1] !== n.name) parts.push(n.name);
+  }
+  return parts.slice(-4).join(" › ") || "—";
+}
+function kpiHtml(name, run) {
+  const ags = run.agents, s = run.summary;
+  const dose = ags.reduce((a, g) => a + g.dose, 0), peak = Math.max(...ags.map(g => g.peak));
+  const gassed = ags.filter(g => g.exitPpm !== null && g.exitPpm >= TH.avoid).length;
+  return `<div class="kpi"><h4>${name}</h4><div class="nums">
+    <span><b>${s.safe}/${ags.length}</b>safe</span><span><b>${gassed}</b>left into gas</span>
+    <span><b>${fmt1(peak)}</b>worst peak ppm</span><span><b>${fmtDose(dose)}</b>total dose ppm²·min</span></div></div>`;
+}
+function renderStatus(t) {
+  const fi = frameAt(t), run = gasRun(), alarm = t < TIMES[0] ? 0 : D.alarm[fi];
+  const el = document.getElementById("stAlarm");
+  el.textContent = ["NORMAL", "WARNING", "EMERGENCY"][alarm]; el.className = "chip " + ["idle", "warn", "bad"][alarm];
+  const [u, from] = D.wind[fi];
+  document.getElementById("stWind").textContent = `${u.toFixed(1)} m/s from ${Math.round(from)}° (${compass(from)})`;
+  document.getElementById("stHvac").textContent = run.hvac[fi] ? "on" : "off (shut down on alarm)";
+  const ags = RUNS[mode === "blind" && HAS_BLIND ? "blind" : "aware"].agents, sts = ags.map(a => stateAt(a, t));
+  document.getElementById("stIn").textContent = sts.filter(s => s <= 3).length;
+  document.getElementById("stShelter").textContent = sts.filter(s => s === 3).length;
+  document.getElementById("stOut").textContent = `${sts.filter(s => s === 4).length} / ${sts.filter(s => s === 5).length}`;
+  document.getElementById("stRunNote").textContent = mode === "both" ? "Gas and counts: gas-aware run" : "";
+}
+const compass = d => ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][Math.round(((d % 360) + 360) % 360 / 45) % 8];
+function renderLedger(t) {
+  const A = RUNS.aware.agents, B = HAS_BLIND ? RUNS.blind.agents : null;
+  const cell = v => v === null || v === undefined ? "—" : fmt1(v);
+  const ppmCls = v => v !== null && v !== undefined && v >= TH.avoid ? "num bad-num" : "num";
+  const showT = mode === "blind" && B ? B : A, liveRun = mode === "blind" && B ? RUNS.blind : RUNS.aware;
+  document.getElementById("thLiveGrp").textContent = mode === "blind" && B ? "Live · gas-blind" : "Live · gas-aware";
+  document.getElementById("ledger").innerHTML = A.map((a, i) => {
+    const b = B && B[i], now = showT[i];
+    return `<tr data-i="${i}" class="${i === focus ? "sel" : ""}"><td><span class="sw" style="background:${AGENT_COLORS[i % 12]}">${i + 1}</span><span class="rm">${a.room}</span><span class="nm">${a.name}</span></td>
+      <td>${a.floor}</td><td>${statusChip(now, t)}</td>
+      <td class="${ppmCls(agentVal(liveRun, "aPpm", i, t))}">${fmt1(agentVal(liveRun, "aPpm", i, t))}</td><td class="num">${fmtDose(agentVal(liveRun, "aDose", i, t))}</td>
+      <td class="route">${routeSoFar(a, t)}</td>
+      <td>${a.exit || "—"}</td><td class="${ppmCls(a.exitPpm)}">${cell(a.exitPpm)}</td><td class="${ppmCls(a.peak)}">${fmt1(a.peak)}</td><td class="num">${fmtDose(a.dose)}</td>
+      ${b ? `<td class="sepl">${b.exit || "—"}</td><td class="${ppmCls(b.exitPpm)}">${cell(b.exitPpm)}</td><td class="${ppmCls(b.peak)}">${fmt1(b.peak)}</td><td class="num">${fmtDose(b.dose)}</td>` : `<td class="sepl" colspan="4">—</td>`}</tr>`;
+  }).join("");
+}
+document.getElementById("kpis").innerHTML = kpiHtml("Gas-aware A* (default)", RUNS.aware) + (HAS_BLIND ? kpiHtml("Gas-blind: fastest route, no gas costs", RUNS.blind) : "");
+document.getElementById("ledgerSub").textContent =
+  `The same ${RUNS.aware.agents.length} people with the same pre-movement delays in both runs. Route shows the doors, stairs and exit the agent has passed so far. ` +
+  `Path ppm is the worst air on the exit's outdoor walk at the moment they stepped out. Peak and dose (L = Σ C²·dt/60) include that walk. ` +
+  `Values at or above ${TH.avoid} ppm are in red. Exposure columns are end-of-run totals; "Now" follows the clock and the selected run.`;
+
+// ------------------------------------------------------------------ loop + controls
+let clock = 0, playing = false, mode = "aware", lastFrame = performance.now(), dirty = true;
+const scrub = document.getElementById("scrub");
+scrub.max = D.duration;
+const showRoutes = () => document.getElementById("showRoutes").checked;
+const showForecast = () => document.getElementById("showForecast").checked;
+const showWhy = () => document.getElementById("showWhy").checked;
+const badge = i => `<span class="sw" style="background:${AGENT_COLORS[i % 12]}">${i + 1}</span>`;
+function sentence(d) {
+  const ag = RUNS.aware.agents[d.agent], who = `<b>${ag.room}</b>`, b = d.block;
+  const gas = b ? `<span class="x">${b.name} will be at ${Math.round(b.ppm)} ppm</span> when they get there in ${Math.round(b.eta)} s (${b.now < 1 ? "clean" : Math.round(b.now) + " ppm"} right now)` : "";
+  if (d.kind === "fastest") return `${who}: fastest way out is ${d.chosenExit} and it stays clean → <span class="ok">takes it</span>`;
+  if (d.kind === "shelter") return `${who}: every way out crosses gas (${gas}) → <span class="x">shuts the door and shelters</span>, re-checks every 5 s`;
+  const lead = d.kind === "reroute" ? "re-routes mid-way: " : "";
+  if (!b) return `${who}: ${lead}takes ${d.chosenExit}${d.tier > 0 ? " (no gas-free exit, least exposure)" : " (less gas on the way)"}`;
+  return `${who}: ${lead}fastest way out is ${d.fastestExit}, but ${gas} → A* takes <span class="ok">${d.chosenExit}</span> instead (+${d.extra} s)`;
+}
+let logCount = -1;
+function renderLog(t) {
+  const ds = RUNS.aware.decisions.filter(d => d.t <= t + 1e-6);
+  if (ds.length === logCount && Math.floor(t) % 2) return;
+  logCount = ds.length;
+  const el = document.getElementById("log");
+  el.innerHTML = ds.length ? ds.slice().reverse().slice(0, 60).map(d =>
+    `<li data-t="${d.t}" class="${t - d.t < 3 ? "fresh" : ""}"><span class="lt">${d.t.toFixed(1)} s</span>${badge(d.agent)}<span>${sentence(d)}</span></li>`).join("")
+    : `<li class="log-empty" style="cursor:default">No decisions yet. People start moving after the alarm and their pre-movement delay.</li>`;
+}
+// ------------------------------------------------------------------ focus on one person
+function routeFull(ag) {
+  const parts = [];
+  for (const s of ag.traceS) {
+    const n = D.nodes[NODE_OF[s]];
+    if (n.kind < 2 || n.name.includes("-fd-")) continue;
+    if (parts[parts.length - 1] !== n.name) parts.push(n.name);
+  }
+  if (ag.ap) parts.push(ag.ap);
+  return parts.join(" › ") || "—";
+}
+function fcCol(title, ag, swatch) {
+  const bad = v => v !== null && v !== undefined && v >= TH.avoid ? ' class="bad-num"' : "";
+  return `<div class="fc"><h4><i style="border-color:${swatch.c};border-top-style:${swatch.dash ? "dashed" : "solid"}"></i>${title}</h4>
+    <div class="route">${routeFull(ag)}</div>
+    <div class="nums"><span>exit <b>${ag.exit || "—"}</b></span><span>out at <b>${ag.tOut ? ag.tOut.toFixed(0) + " s" : "—"}</b></span>
+      <span>safe at <b>${ag.tSafe ? ag.tSafe.toFixed(0) + " s" : "—"}</b></span>
+      <span>worst air on the way out <b${bad(ag.exitPpm)}>${fmt1(ag.exitPpm)} ppm</b></span>
+      <span>peak <b${bad(ag.peak)}>${fmt1(ag.peak)} ppm</b></span><span>dose <b>${fmtDose(ag.dose)}</b> ppm²·min</span></div></div>`;
+}
+function renderFocusCard() {
+  const el = document.getElementById("focusCard");
+  if (focus < 0) {
+    el.innerHTML = `<p class="sub" style="margin:0">Pick a person above, or click a row in the People table, to follow one person. ` +
+      `Everyone else fades, and the floor plans and exposure chart show only that person's two runs: <b>solid</b> = gas-aware A*, <b style="color:var(--danger)">red dashed</b> = gas-blind.</p>`;
+    return;
+  }
+  const a = RUNS.aware.agents[focus], b = HAS_BLIND ? RUNS.blind.agents[focus] : null;
+  let verdict = "";
+  if (b) {
+    const dt = a.tSafe && b.tSafe ? a.tSafe - b.tSafe : null;
+    const later = dt === null ? "" : dt > 0.5 ? `, ${dt.toFixed(0)} s later` : dt < -0.5 ? `, ${(-dt).toFixed(0)} s sooner` : "";
+    verdict = a.exit === b.exit
+      ? `Both runs use <b>${a.exit}</b>: the fastest way out stayed clean for this person, so A* had nothing to avoid.`
+      : `Gas-blind takes <b>${b.exit}</b> and meets <b class="bad-num">${fmt1(b.peak)} ppm</b> (dose ${fmtDose(b.dose)}). ` +
+        `Gas-aware A* takes <b>${a.exit}</b> instead${later}, and never sees more than <b>${fmt1(a.peak)} ppm</b>.`;
+  }
+  const why = RUNS.aware.decisions.filter(d => d.agent === focus && d.kind !== "fastest");
+  el.innerHTML = `<p class="fc-verdict">${badge(focus)} <b>${a.room}</b> ${a.name} · ${verdict}</p>
+    <div class="fc-grid">${fcCol("Gas-aware A*", a, { c: AGENT_COLORS[focus % 12] })}${b ? fcCol("Gas-blind", b, { c: C.danger, dash: true }) : ""}</div>
+    ${why.length ? `<ul class="fc-why">${why.map(d => `<li><b>${d.t.toFixed(1)} s</b>: ${sentence(d)}</li>`).join("")}</ul>` : ""}`;
+}
+function setFocus(i) {   // -1 = everyone; picking the followed person again also clears it
+  focus = i < 0 || focus === i ? -1 : i;
+  document.querySelectorAll("#picker button").forEach(bt => bt.setAttribute("aria-pressed", +bt.dataset.i === focus));
+  renderFocusCard(); dirty = true;
+}
+{
+  const pk = document.getElementById("picker");
+  pk.innerHTML = `<span>Follow:</span><button data-i="-1" aria-pressed="true">Everyone</button>` + RUNS.aware.agents.map(a =>
+    `<button data-i="${a.i}" aria-pressed="false" title="${a.name}">${badge(a.i)}${a.room}</button>`).join("");
+  pk.addEventListener("click", ev => { const bt = ev.target.closest("button"); if (bt) setFocus(+bt.dataset.i); });
+  document.getElementById("ledger").addEventListener("click", ev => { const tr = ev.target.closest("tr[data-i]"); if (tr) setFocus(+tr.dataset.i); });
+  const stat = run => {
+    const ags = run.agents, gassed = ags.filter(g => g.exitPpm !== null && g.exitPpm >= TH.avoid).length;
+    return `${gassed ? `<span class="bad-num">${gassed} of ${ags.length} left into gas</span>` : `0 of ${ags.length} left into gas`} · total dose ${fmtDose(ags.reduce((x, g) => x + g.dose, 0))}`;
+  };
+  document.getElementById("cmpAStat").innerHTML = stat(RUNS.aware);
+  if (HAS_BLIND) document.getElementById("cmpBStat").innerHTML = stat(RUNS.blind);
+  else document.getElementById("cmpBWrap").style.display = "none";
+  renderFocusCard();
+}
+document.getElementById("log").addEventListener("click", ev => { const li = ev.target.closest("li[data-t]"); if (li) setTime(+li.dataset.t + 0.05); });
+function setTime(t) { clock = Math.max(0, Math.min(D.duration, t)); dirty = true; }
+function render() {
+  paintField(clock); for (const rk of Object.keys(RUNS)) paintGasFloors(rk, clock);
+  drawCompare(clock); drawSite(clock); drawFloor(0, clock); drawFloor(1, clock); drawChart(clock); drawExpo(clock); renderLog(clock);
+  renderStatus(clock); renderLedger(clock);
+  scrub.value = clock; document.getElementById("clock").textContent = clock.toFixed(1) + " s";
+}
+function tick(now) {
+  const dt = Math.min(0.1, (now - lastFrame) / 1000); lastFrame = now;
+  if (playing) {
+    clock += dt * +document.getElementById("speed").value;
+    if (clock >= D.duration) { clock = D.duration; playing = false; syncPlay(); }
+    dirty = true;
+  }
+  if (dirty) { render(); dirty = false; }
+  requestAnimationFrame(tick);
+}
+function syncPlay() { document.getElementById("play").textContent = playing ? "Pause" : (clock >= D.duration ? "Replay" : "Play"); }
+document.getElementById("play").onclick = () => { if (clock >= D.duration) clock = 0; playing = !playing; syncPlay(); };
+scrub.oninput = () => setTime(+scrub.value);
+function setMode(m) {
+  mode = m;
+  for (const [id, k] of [["runAware", "aware"], ["runBlind", "blind"], ["runBoth", "both"]]) document.getElementById(id).setAttribute("aria-pressed", k === m);
+  dirty = true;
+}
+document.getElementById("runAware").onclick = () => setMode("aware");
+document.getElementById("runBlind").onclick = () => setMode("blind");
+document.getElementById("runBoth").onclick = () => setMode("both");
+if (!HAS_BLIND) for (const id of ["runBlind", "runBoth"]) document.getElementById(id).disabled = true;
+for (const id of ["showRoutes", "showForecast", "showWhy"]) document.getElementById(id).onchange = () => { dirty = true; };
+document.getElementById("siteSub").textContent = `${D.site.w} × ${D.site.hgt} m · ${F.h} m cells · 10 m grid`;
+
+new ResizeObserver(() => { sizeCanvases(); dirty = true; }).observe(document.querySelector(".wrap"));
+const mq = window.matchMedia("(prefers-color-scheme: dark)");
+mq.addEventListener && mq.addEventListener("change", () => { readColors(); dirty = true; });
+new MutationObserver(() => { readColors(); dirty = true; }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+readColors();
+sizeCanvases();
+// #t=60&run=blind&forecast=1 opens paused at a moment (for linking to one)
+const hash = new URLSearchParams(location.hash.slice(1));
+if (hash.has("run") && ["aware", "blind", "both"].includes(hash.get("run"))) setMode(hash.get("run"));
+if (hash.has("focus")) setFocus(+hash.get("focus") - 1);
+if (hash.get("forecast") === "1") document.getElementById("showForecast").checked = true;
+if (hash.has("t")) setTime(+hash.get("t") || 0);
+else if (!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches)) { setTime(0); playing = true; }
+syncPlay();
+requestAnimationFrame(tick);
+</script>

@@ -1,0 +1,78 @@
+# H2S pipe leak at the outdoor tank H-4 (SE of building B1), with a wind shift.
+#
+# One file defines the run; each model owns its own section (Gas Dispersion
+# design doc, "Design rules"). Run with:
+#     python -m dms.gas.simulate --scenario configs/scenarios/h2s_tank_leak.yaml
+#
+# Story: the leak starts at t=0 with a 2.5 m/s south-easterly, which carries
+# the plume over the east wing onto X-E and X-N. The outdoor detectors on the
+# east facade trip the 30 ppm alarm (~18 s) and HVAC shuts down. At t=20-30 s
+# the wind veers to due east: the plume swings south onto the main exit X-S
+# and its path to AP-S, and the swath released during the veer sweeps across
+# the west exits for about a minute while X-E and X-N clear. Nobody can see
+# the script coming; gas-aware agents plan on the 5-minute forecast, which
+# refreshes as soon as the wind turns.
+
+map:
+  config: configs/buildings/two_storey.yaml   # spatial model: site, building, rooms, release-source locations
+  building: B1
+  blocked_exits: []      # door ids forced UNAVAILABLE (X-SE is already locked by default)
+  closed_stairs: []
+
+sim:
+  duration_s: 240
+  gas_dt_s: 1.0          # gas model step (doc: 1 s)
+  agent_hz: 10           # agents step at 10 Hz and read the latest gas values
+  seed: 7                # runs are deterministic for a given seed
+
+gas:
+  species: H2S
+  mw: 34.08
+  terrain: urban         # Briggs urban sigmas (plant default, SYSTEM_SPEC §2.3)
+  field_h_m: 2.0
+  puff_interval_s: 1.0
+  releases:
+    # `source` names a hazard location in the map; the release parameters live here.
+    - {id: R-1, source: H-4, kind: continuous, rate_gps: 100.0, height_m: 1.0, start_s: 0.0, duration_s: 900.0, sigma0_m: 1.0}
+  weather:               # keyframes; continuous fields interpolate, stability switches
+    - {t: 0,  wind_speed: 2.5, wind_from_deg: 135, stability: D, temperature_c: 30.0, pressure_pa: 101325, precipitation_mmh: 0.0, humidity_pct: 40}
+    - {t: 20, wind_from_deg: 135}
+    - {t: 30, wind_from_deg: 90}
+  ventilation: {ach_hvac_on: 2.0, ach_hvac_off: 0.3, ach_sealed: 0.1, ach_door_open: 6.0, ceiling_m: 3.0}
+  detectors:             # site metres; `floor`+`room` makes it an indoor detector reading that room
+    - {id: D-E,  x: 112.0, y: 70.0}
+    - {id: D-SE, x: 112.0, y: 52.0}
+    - {id: D-NE, x: 112.0, y: 88.0}
+    - {id: D-S,  x: 80.0,  y: 48.0}
+    - {id: D-N,  x: 80.0,  y: 92.0}
+    - {id: D-W,  x: 48.0,  y: 70.0}
+    - {id: D-G15, floor: GF, room: G-15}
+  alarm: {alarm_ppm: 30.0, warning_ppm: 10.0, hold_s: 5.0}
+  forecast: {horizon_s: 300.0, every_s: 30.0, field_every_s: 10.0}
+  response:
+    hvac_shutdown_on_alarm: true   # facility response to EMERGENCY, written to the map
+    exit_door_hold_open_s: 8.0     # an exit door stays open this long after someone passes
+
+agents:
+  planner: astar         # default pathfinding: A* on the graph-RL navigation graph
+  compare_gas_blind: true  # also run the same people on the plain fastest route
+  avoid_ppm: 10.0        # a node at/above this is "a place with gas" and is avoided
+  hard_ppm: 100.0        # IDLH: only crossed if there is no other way out
+  lookahead: true        # plan on the 5-minute forecast at each node's ETA, not just now
+  linger_s: 15.0
+  self_alert_ppm: 10.0   # someone who smells this much starts moving without waiting for the alarm
+  premovement_s: [5.0, 25.0]
+  shelter_replan_s: 5.0
+  spawns:                # (floor, room): each starts at the walkable cell nearest the room centre
+    - {floor: FF, room: F-09}
+    - {floor: FF, room: F-08}
+    - {floor: FF, room: F-10}
+    - {floor: FF, room: F-02}
+    - {floor: FF, room: F-01}
+    - {floor: FF, room: F-12}
+    - {floor: FF, room: F-07}
+    - {floor: GF, room: G-03}
+    - {floor: GF, room: G-15}
+    - {floor: GF, room: G-06}
+    - {floor: GF, room: G-11}
+    - {floor: GF, room: G-14}
