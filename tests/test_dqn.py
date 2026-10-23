@@ -74,3 +74,13 @@ def test_different_attributes_still_route_to_an_exit(genv, trained):
         attr = profile_features(sample_population(1, np.random.default_rng(seed))[0])
         ro = trained.greedy_rollout(s, attr)
         assert ro.reached_exit
+
+
+def test_on_progress_streams_monotonic_episodes(genv):
+    rows: list[dict] = []
+    DQN(genv, _cfg(episodes=90, train_start=64, seed=9)).train(
+        progress_every=30, on_progress=rows.append)
+    eps = [r["ep"] for r in rows]
+    assert eps == sorted(eps) and len(set(eps)) == 3
+    assert all(r["success"] >= 0 and r["success"] <= 1 for r in rows)
+    assert all("loss" in r and "mean_time" in r for r in rows)

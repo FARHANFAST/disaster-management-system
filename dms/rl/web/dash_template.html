@@ -1,0 +1,314 @@
+<title>DQN Route Policy — Training Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<style>
+:root {
+  --paper: #f2f4f1; --sheet: #fbfcfa; --ink: #1b2830; --muted: #5b6970; --rule: #cfd7d3;
+  --wall: #22313a; --exit: #0b8a4b; --locked: #c2412d; --focus: #2a63d4;
+  --success: #0b8a4b; --time: #2a63d4; --loss: #c0462e; --chip-bg: #e7ebe9; --chip-fg: #4b585e;
+  --font-display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #10171b; --sheet: #151e23; --ink: #dbe4e6; --muted: #92a1a6; --rule: #2a373d;
+    --wall: #c9d6da; --exit: #2fbf72; --locked: #e0634d; --focus: #7aa5ff;
+    --success: #2fbf72; --time: #7aa5ff; --loss: #d0583c; --chip-bg: #222d32; --chip-fg: #a3b1b5;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--font-body); font-size: 14px; line-height: 1.45; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 22px 20px 60px; }
+h1 { font-family: var(--font-display); font-size: 22px; margin: 0; letter-spacing: .2px; }
+.sub { color: var(--muted); font-family: var(--font-data); font-size: 12px; margin-top: 2px; }
+.card { background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px;
+  padding: 14px 16px; margin-top: 16px; }
+.card h2 { font-family: var(--font-display); font-size: 13px; margin: 0 0 10px;
+  text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
+header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.chip { display: inline-block; padding: 3px 9px; border-radius: 20px; font-family: var(--font-data);
+  font-size: 11px; background: var(--chip-bg); color: var(--chip-fg); white-space: nowrap; }
+.chip.ok { background: color-mix(in srgb, var(--success) 14%, transparent); color: var(--success); }
+.chip.warn { background: color-mix(in srgb, var(--locked) 14%, transparent); color: var(--locked); }
+.chip.gpu { background: color-mix(in srgb, var(--focus) 12%, transparent); color: var(--focus); }
+
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+label { font-size: 11px; color: var(--muted); display: block; margin-bottom: 4px; }
+input, select { width: 100%; font-family: var(--font-data); font-size: 13px; padding: 6px 8px;
+  border: 1px solid var(--rule); border-radius: 6px; background: var(--paper); color: var(--ink); }
+button.primary { margin-top: 12px; font-family: var(--font-display); font-weight: 600; font-size: 14px;
+  padding: 8px 18px; border: 0; border-radius: 6px; cursor: pointer; color: #fff;
+  background: linear-gradient(180deg, #158a4e, #0b6b3c); }
+button.primary:disabled { filter: grayscale(.7); cursor: not-allowed; }
+button.ghost { float: right; font-family: var(--font-data); font-size: 11px; padding: 4px 10px;
+  border: 1px solid var(--rule); border-radius: 6px; background: var(--sheet); color: var(--muted); cursor: pointer; }
+.note { margin-top: 10px; font-size: 12px; color: var(--muted);
+  border-top: 1px dashed var(--rule); padding-top: 8px; }
+#status { font-family: var(--font-data); font-size: 13px; min-height: 20px; margin-top: 12px; }
+#status .prog { color: var(--focus); } #status .err { color: var(--locked); }
+#status .ok { color: var(--success); }
+#status .eta { color: var(--muted); }
+
+.chart-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.legend span { font-family: var(--font-data); font-size: 11px; padding: 2px 8px; border-radius: 12px;
+  background: var(--chip-bg); color: var(--chip-fg); cursor: pointer; user-select: none; }
+.legend span.on-success { color: var(--success); } .legend span.on-time { color: var(--time); }
+.legend span.on-loss { color: var(--loss); }
+canvas { width: 100%; height: 260px; display: block; }
+iframe#live { width: 100%; height: 460px; border: 1px solid var(--rule); border-radius: 6px;
+  background: var(--sheet); }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.tile { border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; }
+.tile dt { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+.tile dd { margin: 3px 0 0; font-family: var(--font-data); font-size: 18px; font-weight: 500; }
+.tile dd.neg { color: var(--success); }
+
+table { width: 100%; border-collapse: collapse; font-family: var(--font-data); font-size: 12px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--rule); }
+th { color: var(--muted); font-weight: 500; }
+td.t { text-align: right; } th.t { text-align: right; }
+pre.err { white-space: pre-wrap; font-size: 11px; color: var(--locked); margin: 0; }
+footer { margin-top: 18px; font-family: var(--font-data); font-size: 11px; color: var(--muted); }
+.hidden { display: none; }
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>DQN Route Policy</h1>
+      <div class="sub">shared MLP · 176 one-hot node + 26 attribute features · graded vs cell optimum</div>
+    </div>
+    <div>
+      <span class="chip gpu" id="chip-cuda">CUDA: …</span>
+      <span class="chip" id="chip-cpu">cpu: ok</span>
+      <span class="chip ok" id="chip-device">device: …</span>
+    </div>
+  </header>
+
+  <section class="card" id="live-card">
+    <div class="chart-head">
+      <h2>Evacuation live view — 100 agents, browser learner</h2>
+      <span class="chip" id="chip-live">B1 two-storey summary</span>
+    </div>
+    <iframe id="live" src="/live" title="B1 evacuation live page"></iframe>
+  </section>
+
+  <section class="card" id="controls">
+    <h2>Run training (DQN on the RTX 4050)</h2>
+    <div class="fields">
+      <div><label for="episodes">Episodes</label><input id="episodes" type="number" value="4000" min="100" step="100"></div>
+      <div><label for="batch">Batch size</label><input id="batch" type="number" value="256" min="16" step="16"></div>
+      <div>
+        <label for="device">Device</label>
+        <select id="device">
+          <option value="auto" selected>auto — CUDA if available</option>
+          <option value="cuda">cuda</option>
+          <option value="cpu">cpu</option>
+        </select>
+      </div>
+      <div><label for="seed">Seed</label><input id="seed" type="number" value="0" step="1"></div>
+      <div><label for="block">Blocked exits (comma)</label><input id="block" type="text" placeholder="X-E, X-S"></div>
+      <div><label for="stair">Closed stairs (comma)</label><input id="stair" type="text" placeholder="ST-C"></div>
+    </div>
+    <button class="primary" id="train">Train policy</button>
+    <div class="note" id="devnote">Device <b>auto</b> resolves to the RTX 4050 (CUDA) here, so the GPU is always exercised —
+      watch the <b><span class="chip gpu">on cuda</span></b> badge in the status line. Note: at this problem size the
+      rollout loop is Python-bound, so CUDA wall-time ≈ CPU; the GPU pays off once the crowd-density / smoke features
+      scale the state and batches.</div>
+    <div id="status">Idle — configure and press <b>Train policy</b>.</div>
+  </section>
+
+  <section class="card hidden" id="curve-card">
+    <div class="chart-head">
+      <h2>Learning curve</h2>
+      <div class="legend">
+        <span id="l-success" class="on-success">success %</span>
+        <span id="l-time" class="on-time">mean time (s)</span>
+        <span id="l-loss" class="on-loss">loss</span>
+      </div>
+    </div>
+    <canvas id="chart"></canvas>
+    <button class="ghost" id="snapshot">snapshot (json)</button>
+  </section>
+
+  <section class="card hidden" id="result-card">
+    <h2>Final grade — greedy policy from every walkable cell</h2>
+    <dl class="tiles" id="tiles"></dl>
+    <h2 style="margin-top:18px">Hard-spawn rooms (10 hot spots)</h2>
+    <table id="routes"><thead><tr><th>room</th><th>route (doors &gt; stairs &gt; exit)</th><th class="t">DQN</th><th class="t">best graph</th><th class="t">cell opt</th></tr></thead><tbody></tbody></table>
+  </section>
+
+  <section class="card hidden" id="error-card">
+    <h2>Training failed</h2><pre class="err" id="error-text"></pre>
+  </section>
+
+  <footer>Equivalent CLI: <span id="cli">python -m dms.rl.train_dqn --episodes 4000 --batch-size 256 --device auto --seed 0</span>
+    · Rebuild live sim page: <span>python -m dms.rl.live_page</span></footer>
+</div>
+
+<script>
+const fmt = (x, d=1) => (x==null || Number.isNaN(x)) ? "–" : x.toFixed(d);
+const pct = (x, d=1) => (x==null) ? "–" : (100*x).toFixed(d) + "%";
+const $ = id => document.getElementById(id);
+
+let run = null;
+let SERIES = { success: {color:"var(--success)", show:true, fmt:v=>pct(v,0)},
+               time:    {color:"var(--time)",    show:true, fmt:v=>fmt(v,0)+"s"},
+               loss:    {color:"var(--loss)",    show:true, fmt:v=>v.toFixed(3)} };
+
+function statusLine(st, cfg, prog) {
+  const el = $("status");
+  if (st.status === "running") {
+    const last = prog[prog.length-1];
+    let eta = "", dev = "";
+    if (st.active_device) dev = `<span class="chip gpu">on ${st.active_device}</span>`;
+    if (last && last.t_s > 0) {
+      const remaining = cfg.episodes - last.ep;
+      const rate = last.ep / last.t_s;
+      eta = `<span class="eta">· ETA ${Math.round(remaining/rate)}s</span>`;
+    }
+    el.innerHTML = `<span class="prog">Training ep ${(last&&last.ep)||0}/${cfg.episodes}</span> ${dev}${eta}`;
+  } else if (st.status === "grading") {
+    el.innerHTML = `<span class="prog">Policy learned on ${st.active_device||'…'} — grading from every start cell...</span>`;
+  } else if (st.status === "done") {
+    el.innerHTML = `<span class="ok">Done in ${fmt(st.done.train_s)}s on ${st.done.config.device}.</span>`;
+  } else if (st.status === "error") {
+    el.innerHTML = `<span class="err">Failed — see panel below.</span>`;
+  } else {
+    el.innerHTML = "Idle — configure and press <b>Train policy</b>.";
+  }
+}
+
+function drawChart(canvas, prog, episodes) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  canvas.width = w*dpr; canvas.height = h*dpr;
+  const g = canvas.getContext("2d"); g.scale(dpr, dpr);
+  const style = getComputedStyle(document.documentElement);
+  const ink = style.getPropertyValue("--ink").trim(), rule = style.getPropertyValue("--rule").trim();
+  g.clearRect(0,0,w,h);
+  if (prog.length < 2) return;
+  const padL = 46, padR = 14, padT = 10, padB = 22, plotW = w-padL-padR, plotH = h-padT-padB;
+
+  const active = Object.keys(SERIES).filter(k => SERIES[k].show);
+  let ymin=1e9, ymax=-1e9;
+  for (const k of active) for (const r of prog) { const v=r[k]; if (v!=null){ ymin=Math.min(ymin,v); ymax=Math.max(ymax,v); } }
+  if (!isFinite(ymin) || ymin===ymax) { ymin=0; ymax=1; }
+  const span = ymax-ymin || 1;
+
+  g.font = "10px IBM Plex Mono, monospace"; g.fillStyle = ink; g.textAlign = "right";
+  g.strokeStyle = rule; g.lineWidth = 1;
+  for (let i=0;i<=4;i++){
+    const y = padT + plotH*i/4, v = ymax - span*i/4;
+    g.beginPath(); g.moveTo(padL,y); g.lineTo(w-padR,y); g.stroke();
+    g.fillText(v.toFixed(v>=100?0:2), padL-6, y+3);
+  }
+  g.textAlign = "center";
+  for (let i=0;i<=4;i++){
+    const x = padL + plotW*i/4, ep = Math.round(episodes*i/4);
+    g.fillText(String(ep), x, h-6);
+  }
+  const cur = Array.from(prog);
+  for (const k of active) {
+    const col = style.getPropertyValue(SERIES[k].color).trim();
+    g.strokeStyle = col; g.lineWidth = 1.6; g.beginPath();
+    let started = false;
+    cur.forEach(r=>{
+      if (r[k]==null) return;
+      const x = padL + plotW*(r.ep/episodes), y = padT + plotH*(1-(r[k]-ymin)/span);
+      if (started) g.lineTo(x,y); else { g.moveTo(x,y); started = true; }
+    });
+    g.stroke();
+  }
+}
+
+function renderResult(done) {
+  const g = done.grade, c = done.config;
+  const tiles = [
+    ["Success rate", pct(g.success,0)],
+    ["Within 5% of optimum", pct(g.within_5pct,1)],
+    ["Mean excess", (g.mean_excess>=0?"+":"")+pct(g.mean_excess,2)],
+    ["p90 excess", "+"+pct(g.p90_excess,1)],
+    ["Max excess", "+"+pct(g.max_excess,0)],
+    ["Design cost (best graph)", "+"+pct(g.design,2)],
+    ["Grade coverage", g.n_starts.toLocaleString() + " start cells"],
+    ["Training time", fmt(done.train_s)+"s"],
+    ["Device used", c.device],
+    ["State dim", c.state_dim + " (176 node + "+c.n_attr+" attr)"],
+  ];
+  $("tiles").innerHTML = tiles.map(t=>`<div class="tile"><dt>${t[0]}</dt><dd>${t[1]}</dd></div>`).join("");
+  $("routes").querySelector("tbody").innerHTML = done.routes.map(r=>`
+    <tr><td>${r.room}</td><td>${r.route}</td><td class="t">${r.time||'STUCK'}</td><td class="t">${r.best_graph}</td><td class="t">${r.cell_opt}</td></tr>`).join("");
+}
+
+async function poll() {
+  const st = await (await fetch("/state")).json();
+  if (run) statusLine(st, run, st.progress);
+  if (st.status === "running") {
+    $("curve-card").classList.remove("hidden");
+    $("result-card").classList.remove("hidden");
+    drawChart($("chart"), st.progress, run.episodes);
+  }
+  if (st.status === "done") { $("curve-card").classList.remove("hidden"); renderResult(st.done); stopPolling(); }
+  if (st.status === "error") { $("error-card").classList.remove("hidden"); $("error-text").textContent = st.error; stopPolling(); }
+  return st;
+}
+let timer = null;
+function startPolling(){ stopPolling(); timer = setInterval(poll, 500); }
+function stopPolling(){ if (timer){ clearInterval(timer); timer=null; } }
+
+$("train").addEventListener("click", async () => {
+  const cfg = {
+    episodes: parseInt($("episodes").value, 10) || 4000,
+    batch_size: parseInt($("batch").value, 10) || 256,
+    device: $("device").value,
+    seed: parseInt($("seed").value, 10) || 0,
+    block: $("block").value.split(/[, ]+/).filter(Boolean),
+    close_stair: $("stair").value.split(/[, ]+/).filter(Boolean),
+  };
+  run = { episodes: cfg.episodes, config: cfg };
+  $("error-card").classList.add("hidden");
+  $("result-card").classList.add("hidden");
+  $("curve-card").classList.remove("hidden");
+  $("train").disabled = true;
+  $("cli").textContent = `python -m dms.rl.train_dqn --episodes ${cfg.episodes} --batch-size ${cfg.batch_size} --device ${cfg.device} --seed ${cfg.seed}` +
+    (cfg.block.length ? ` --block ${cfg.block.join(" --block ")}` : "") +
+    (cfg.close_stair.length ? ` --close-stair ${cfg.close_stair.join(" --close-stair ")}` : "");
+  const r = await fetch("/train", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(cfg) });
+  if (r.status === 409) { $("status").innerHTML = `<span class="err">Another training is already running.</span>`; $("train").disabled = false; return; }
+  startPolling(); await poll();
+});
+
+["l-success","l-time","l-loss"].forEach((id,i)=>{
+  $(id).addEventListener("click", e=>{
+    const k = ["success","time","loss"][i];
+    SERIES[k].show = !SERIES[k].show;
+    e.target.classList.toggle("on-"+k);
+    if (run) poll();
+  });
+});
+
+$("snapshot").addEventListener("click", async () => {
+  const st = await (await fetch("/state")).json();
+  if (!st.done) return;
+  const blob = new Blob([JSON.stringify({config:st.done.config, scenario:st.done.scenario,
+      grade:st.done.grade, routes:st.done.routes, train_s:st.done.train_s}, null, 2)],
+      {type:"application/json"});
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+  a.download = "dqn_run_snapshot.json"; a.click(); URL.revokeObjectURL(a.href);
+});
+
+(async function init(){
+  const st = await (await fetch("/state")).json();
+  $("chip-cpu").textContent = "cpu: ok";
+  $("chip-cuda").textContent = st.devices.cuda_available
+    ? "cuda: " + (st.devices.gpu_name || "available") : "cuda: not found";
+  $("chip-device").textContent = "device: " + (st.devices.default || "…");
+  if (st.status !== "idle") { $("train").disabled = true; run = { episodes: 4000 }; startPolling(); await poll(); }
+})();
+</script>

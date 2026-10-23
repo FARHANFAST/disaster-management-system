@@ -250,10 +250,26 @@ class DQN:
         self.optimizer.step()
         return float(loss.detach().cpu())
 
-    def train(self, *, progress_every: int = 0) -> DQNTrainLog:
+    def train(self, *, progress_every: int = 0, on_progress=None) -> DQNTrainLog:
         cfg = self.cfg
         log = DQNTrainLog()
         span = max(1, int(cfg.episodes * cfg.eps_decay_frac))
+
+        def emit(ep: int, eps: float) -> None:
+            w = slice(-max(1, progress_every), None)
+            losses = log.losses[-max(1, progress_every):] if log.losses else [0.0]
+            row = dict(ep=ep, eps=eps,
+                       success=float(np.mean(log.reached_exit[w])),
+                       mean_hops=float(np.mean(log.episode_hops[w])),
+                       mean_time=float(np.mean(log.episode_time[w])),
+                       loss=float(np.mean(losses)))
+            if on_progress is not None:
+                on_progress(row)
+            if progress_every:
+                print(f"  ep {ep:6d}  eps={eps:.3f}  success={row['success']:6.1%}  "
+                      f"mean hops={row['mean_hops']:5.1f}  mean time={row['mean_time']:6.1f}s  "
+                      f"loss={row['loss']:.4f}")
+
         for ep in range(cfg.episodes):
             eps = cfg.eps_start + min(1.0, ep / span) * (cfg.eps_end - cfg.eps_start)
             feats_np = self._feats()
@@ -293,11 +309,7 @@ class DQN:
             log.episode_hops.append(hops)
             log.reached_exit.append(done)
             if progress_every and (ep + 1) % progress_every == 0:
-                w = slice(-progress_every, None)
-                losses = log.losses[-progress_every:] if log.losses else [0.0]
-                print(f"  ep {ep + 1:6d}  eps={eps:.3f}  success={np.mean(log.reached_exit[w]):6.1%}  "
-                      f"mean hops={np.mean(log.episode_hops[w]):5.1f}  mean time={np.mean(log.episode_time[w]):6.1f}s  "
-                      f"loss={np.mean(losses):.4f}")
+                emit(ep + 1, eps)
         return log
 
 
