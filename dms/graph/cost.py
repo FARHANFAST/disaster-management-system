@@ -20,7 +20,7 @@ from .builder import Link
 
 V_REF = 1.19  # m/s, spec §3 parameter registry
 W_RHO = 1.5
-RHO_MAX = 10.0  # ped/m^2, spec §3 (N3 jam density)
+RHO_MAX = 5.4  # ped/m^2, spec §3 jam density (Weidmann 1993; 10 was the [M]-only value)
 W_C = 3.0
 C_REF = 30.0  # ppm, alarm level
 W_VIS = 0.5

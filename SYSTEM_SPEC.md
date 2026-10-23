@@ -1,6 +1,6 @@
 # SYSTEM_SPEC.md
 
-**Source tags:** [M] Makmul 2023 · [L] Liu 2021 · [T] Templeton 2024 · [F] Fang 2022 · [Y] Yoon 2026 · [C] Chen 2021 · [S] Song 2025 · [D] Dou 2022 · [R] Senanayake 2024 · [X] derived/implementation assumption · **[U]** project default set by the project owner. It is not in the three sources and is not yet verified against a primary standard; keep it in config, not in code. **[EXT]** still absent: value is `None` and must be sourced externally before use.
+**Source tags:** [M] Makmul 2023 · [L] Liu 2021 · [T] Templeton 2024 · [F] Fang 2022 · [Y] Yoon 2026 · [C] Chen 2021 · [S] Song 2025 · [D] Dou 2022 · [R] Senanayake 2024 · [H] Helbing, Farkas & Vicsek 2000 (Nature 407:487) · [J] Johansson, Helbing & Shukla 2007 (Adv. Complex Syst. 10:271) · [K] Lakoba, Kaup & Finkelstein 2005 (Simulation 81:339) · [W] Weidmann 1993 (ETH IVT 90) · [P] Parisi, Gilman & Moldovan 2009 (Physica A 388:3600) · [HB] Hoogendoorn & Bovy 2004 (Transp. Res. B 38:169) · [G] Moussaïd et al. 2010 (PLoS ONE 5:e10047) · [X] derived/implementation assumption · **[U]** project default set by the project owner. It is not in the three sources and is not yet verified against a primary standard; keep it in config, not in code. **[EXT]** still absent: value is `None` and must be sourced externally before use.
 
 ---
 
@@ -101,7 +101,25 @@ $$\mathbf f^{will}_i=m_i\frac{\sigma_i v^{des}_i\mathbf e_i-\mathbf v_i}{\tau} \
 $$\mathbf f^{soc}_{ij}=A e^{(r_{ij}-d_{ij})/B}\,\mathbf n_{ij}\Big[\lambda+(1-\lambda)\tfrac{1+\cos\varphi_{ij}}2\Big],\quad \cos\varphi_{ij}=-\mathbf n_{ij}\cdot\hat{\mathbf v}_i \tag{S3}$$
 $$\mathbf f^{ph}_{ij}=k\,g(r_{ij}-d_{ij})\mathbf n_{ij}+\kappa\,g(r_{ij}-d_{ij})\,\Delta v^t_{ji}\mathbf t_{ij} \tag{S4}$$
 $$\mathbf f_{iW}=\big[Ae^{(r_i-d_{iW})/B}+k\,g(r_i-d_{iW})\big]\mathbf n_{iW}-\kappa\,g(r_i-d_{iW})(\mathbf v_i\!\cdot\!\mathbf t_{iW})\mathbf t_{iW} \tag{S5}$$
-Here $g(z)=\max(z,0)$ (a ramp; the sources call it "Heaviside"), $\mathbf n_{ij}=(\mathbf x_i-\mathbf x_j)/d_{ij}$, $\mathbf t_{ij}=(-n^{(2)},n^{(1)})$, and $\Delta v^t_{ji}=(\mathbf v_j-\mathbf v_i)\cdot\mathbf t_{ij}$. In (S5), [F] prints $+\kappa$; the $-$ sign opposes slip [X].
+Here $g(z)=\max(z,0)$ (a ramp; the sources call it "Heaviside"), $\mathbf n_{ij}=(\mathbf x_i-\mathbf x_j)/d_{ij}$, $\mathbf t_{ij}=(-n^{(2)},n^{(1)})$, and $\Delta v^t_{ji}=(\mathbf v_j-\mathbf v_i)\cdot\mathbf t_{ij}$. In (S5), [F] prints $+\kappa$; the $-$ sign opposes slip [X]. [H] Eq. 3 prints the same $-\kappa$ form, confirming the correction.
+
+**Literature check of S1–S5 (Oct 2026)** — read against the primary sources; these rules override the older defaults where they conflict:
+- **One coherent parameter set.** $A=2000$ N, $B=0.08$ m, $k=1.2\times10^5$ kg/s², $\kappa=2.4\times10^5$ kg/(m·s), $\tau=0.5$ s, $m=80$ kg were calibrated *together* in [H] (isotropic force, body diameters $2r_i\sim U[0.5,0.7]$ m) to fit 0.73 ped/s through a 1 m door at $v^0\approx0.8$ m/s. Mixing them with an anisotropy or radius from another calibration breaks that fit. Default is therefore $\lambda=1$ (isotropic, as in [H]) and $r_i\sim U[0.25,0.35]$ m. [J] fits $\lambda\approx0.06$–$0.16$ only together with its own *acceleration-scale* $A,B$ (e.g. circular $A=0.42$ m/s², $B=1.65$ m); the former $\lambda=0.61$ has no matching $A,B$ and is dropped. Changing $r_i$ or $\lambda$ requires re-running the door-flow validation (§4.5).
+- **Random radii replace most deadlock handling.** [H] notes that a small irregularity (the radius spread) is what prevents gridlock in symmetric configurations; ξ (Deadlock) stays as a fallback only.
+- **Known artefacts of these values** [K]: $k=1.2\times10^5$ gives ~6000 N for a 5 cm overlap (over seven body weights) and makes the equations stiff; $B=0.08$ m means two people 0.5 m apart barely interact. They reproduce crowd-level phenomena (clogging, faster-is-slower) but not realistic pair behaviour. Accept them for P0 and validate at crowd level; [K]'s modifications ($B\approx0.5$ m with density- and orientation-dependent social force) are the upgrade path if pair behaviour matters.
+- **Integrator.** With $k/m=1500$ s⁻², $\omega\approx38.7$ rad/s, explicit schemes need $\omega\Delta t\ll2$. Use semi-implicit (symplectic) Euler at $\Delta t_L\le0.02$ s as the default [X]; Ralston RK2 slowly gains energy on undamped contact oscillations and is kept as an option only.
+- **Normal-flow weakness** [P]: the basic SFM does not reproduce the speed–density fundamental diagram in normal conditions; [P] fixes this with a self-stopping ("respect") rule. Validate against [W] (§4.5) and add the rule only if the check fails.
+- **Injury** [H]: an agent whose summed radial contact force divided by its circumference exceeds 1600 N/m is injured and becomes a non-moving obstacle, like INCAPACITATED. Optional; off by default.
+
+**Desired speed under stress** [H] (replaces a fixed emergency $v^0$):
+$$v^{des}_i(t)=\big[1-p_i(t)\big]v^0_i+p_i(t)\,v^{\max}_i,\qquad p_i(t)=1-\bar v_i(t)/v^0_i \tag{S2a}$$
+$\bar v_i$ is the agent's average speed in its desired direction (impatience: people held up in a jam push harder). $v^0_i$ is the agent's own free speed from its profile (age, sex, mobility, health). [H] reports $v^0\approx0.6$ m/s relaxed, ≈1.0 normal, ≲1.5 nervous, and clogging at doors above 1.5 m/s. $v^{\max}_i=\min(2.0,\,1.5\,v^0_i)$ [X].
+
+**Herding** [H] (continuous form; the primary rule, with S7–S9 kept as the discrete fallback for the grid/CA path):
+$$\mathbf e^0_i(t)=\mathcal N\big[(1-p^h_i)\,\mathbf e_i+p^h_i\,\langle\mathbf e^0_j(t)\rangle_i\big],\qquad \mathcal N(\mathbf z)=\mathbf z/\lvert\mathbf z\rvert \tag{S7h}$$
+$\mathbf e_i$ is the agent's own direction (toward its next graph node), $\langle\cdot\rangle_i$ the mean direction of neighbours within its sensing radius. $p^h_i$ couples the agent model to the social force: $p^h_i=W_{2,i}^{\,eff}$ (its current social weight, which already rises with stress and panicked neighbours). [H] finds neither pure individualism ($p\to0$) nor pure herding ($p\to1$) escapes well, and high $p$ makes the crowd jam one exit while others stay unused.
+
+**Architecture** [HB]: pedestrian behaviour has three levels. *Strategic*: which assembly point or exit (agent module, E1). *Tactical*: which route through the graph (agent decision rule, A*, DQN). *Operational*: walking and avoiding people (S1–S7h). The agent module never sets forces directly; it sets $\mathbf e_i$ (its next waypoint), $v^0_i$ and $p^h_i$, and the SFM does the rest.
 
 Incline force [F]: $\lvert\mathbf f_b\rvert=m g\sin\theta$, directed down-slope. $\mathbf f_{adj}$ has no closed form; uphill stall occurs at θ≈15°.
 
@@ -111,7 +129,7 @@ Incline force [F]: $\lvert\mathbf f_b\rvert=m g\sin\theta$, directed down-slope.
 
 **Group cohesion** [T,R] (mechanism qualitative in the sources; form [X]; $A_g=800$ N and $d_g=1.5$ m [U]). The force acts between designated peer pairs $P_i$. The distance term saturates so the result is in N and bounded by $A_g$:
 $$\mathbf f^{grp}_i=\frac{A_g}{\lvert P_i\rvert}\sum_{j\in P_i}\min\!\Big(1,\frac{g(d_{ij}-d_g)}{d_g}\Big)\frac{\mathbf x_j-\mathbf x_i}{d_{ij}},\qquad v^{0}_{G}=\min_{j\in G}v^0_j \tag{S6}$$
-At the cap, $A_g$ exceeds the maximum will force ($80\cdot2.48/0.5\approx397$ N), so a separated agent turns back to its peer. This is the intended "meet-first" behaviour.
+At the cap, $A_g$ exceeds the maximum will force ($80\cdot2.0/0.5=320$ N with $v^{\max}\le2.0$ m/s from S2a), so a separated agent turns back to its peer. This is the intended "meet-first" behaviour. Groups matter: [G] observed up to 70% of people in a crowd walking in groups (friends, couples, families), side by side at low density and in a V shape as density rises, which lowers throughput.
 Missing members trigger SEEKING, with "meet-first" attraction before joint egress [R].
 
 **Leader-follower and herding** [M] (see nav sub-FSM, §4.3):
@@ -138,6 +156,10 @@ $$F(\mathbf x)=\begin{cases}F_b & \mathbf x\in\Omega_b\ (\text{obstacle}\vee C\g
 $$U(\rho)=U_{\max}\Big(1-\frac{\rho}{\rho_{\max}}\Big),\quad \rho(\mathbf x)=\frac{\#\{j:\lvert\mathbf x-\mathbf x_j\rvert<R_v\}}{\pi R_v^2},\quad R_v=\frac{cV}{K_m\,\varepsilon M} \tag{N3}$$
 $$v(\alpha,\rho)=\sigma(\theta,\theta_\perp,\lambda)\cdot v^0_i\Big(1-\frac\rho{\rho_{\max}}\Big)\cdot\phi(L_i),\qquad v\in[0.1,1.4]\ \text{m/s (SGEM)} \tag{N4}$$
 The multiplicative composition in (N4) is [X]. $\phi$ is defined in §2.4.
+
+**Where density may enter (no double counting)** [X, after H/W]: inside INDOOR_SFM the slowdown in crowds *emerges* from the S3–S4 forces, so the desired speed there is $v^{des}_i=\sigma\,v^0_i\,\phi(L_i)$ (and S2a) with **no** $(1-\rho/\rho_{\max})$ factor. The density factor is used only where there are no forces: the CA path, the OUTDOOR_MACRO field, and travel-time estimates on graph links (N5). There, use the empirical fundamental diagram [W] instead of the linear law:
+$$v_W(\rho)=v^0\Big[1-\exp\!\Big(-\gamma\Big(\frac1\rho-\frac1{\rho_{\max}}\Big)\Big)\Big],\quad \gamma=1.913\ \text{m}^{-2},\ \rho_{\max}=5.4\ \text{ped/m}^2,\ v^0_{[W]}=1.34\ \text{m/s} \tag{N4W}$$
+scaled by $v^0_i/1.34$ for each agent. (The linear law with $\rho_{\max}=10$ ped/m² is kept only to reproduce [M]; reported jam densities range 3.8–10 ped/m², and 5.4 is the [W] summary of 25 studies.)
 
 $R_v$ scheduling [M]: one source, linear from 3.37 m to 2.0 m over the run; two sources, 1.68 m. $R_v$ is a global scalar, not coupled to local $C$. Coupling it is a TODO.
 
@@ -263,16 +285,21 @@ Before production use, verify $a$, $b$ and $n$ against a primary source (TNO Gre
 | Dispersion step | $\Delta t_D$ | s | 5–10 | puff update [S] |
 | Grid cell (smoke / CA) | $h_s,h_c$ | m | 0.2 / 0.5 | L0 [M,L] |
 | Agent mass | $m$ | kg | 80, Normal (SD [EXT]) | S1 [F] |
-| Body radius | $r_i$ | m | 0.2 [F]; 0.25 ($r_{ij}$=0.5) [M] | contact |
+| Body radius | $r_i$ | m | $U[0.25,0.35]$ [H] (calibrated with A, B); 0.2 [F] and 0.25 [M] only for those reproductions | contact |
 | Shoulder breadth (M/F, as published) | – | mm | 297.43±18.89 / 352.95±16.14; max 494/414; sim uses max | [Y]. Columns likely swapped. |
 | Relaxation time | $\tau$ | s | 0.5 | S2 |
-| Desired speed (emergency) | $v^0$ | m/s | 2.48 [F]; 1.19 plant [S]; $U_{\max}$=1.65 [M] | S2 |
-| Jam density | $\rho_{\max}$ | ped/m² | 10 | N3 |
-| Social strength | $A$ | N | 2000 (mass-normalised 0.1 [M] is inconsistent) | S3 |
-| Repulsion range | $B$ | m | 0.08 [F]; 0.21 [M] | S3 |
-| Anisotropy | $\lambda$ | – | 0.61 | S3 [M] |
-| Body stiffness | $k$ | kg/s² | 1.2e5 | S4 |
-| Sliding friction | $\kappa$ | kg/(m·s) | 2.4e5 | S4 |
+| Desired (free) speed | $v^0_i$ | m/s | per agent from its profile (age, sex, mobility, health); [H]: 0.6 relaxed / 1.0 normal / ≲1.5 nervous. Old fixed values 2.48 [F], 1.65 [M] only for those reproductions; 1.19 plant mean [S] | S2 |
+| Max desired speed (impatience) | $v^{\max}_i$ | m/s | $\min(2.0,\,1.5\,v^0_i)$ [X] | S2a [H] |
+| Herding weight | $p^h_i$ | – | $=W^{eff}_{2,i}$ (agent social weight) [X] | S7h [H] |
+| Jam density | $\rho_{\max}$ | ped/m² | 5.4 [W] (10 only for [M] reproduction) | N4W, CA/macro/N5 only |
+| Fundamental-diagram shape | $\gamma$ | m⁻² | 1.913 | N4W [W] |
+| Social strength | $A$ | N | 2000 [H] (mass-normalised 0.1 [M] is inconsistent) | S3 |
+| Repulsion range | $B$ | m | 0.08 [H]; 0.5 with [K]'s modified force; 0.21 [M] | S3 |
+| Anisotropy | $\lambda$ | – | 1.0 (isotropic, as calibrated in [H]); 0.61 dropped (no matching A, B); [J] 0.06–0.16 only with [J]'s own A, B | S3 |
+| Body stiffness | $k$ | kg/s² | 1.2e5 [H] (≈6000 N at 5 cm overlap, see [K]) | S4 |
+| Sliding friction | $\kappa$ | kg/(m·s) | 2.4e5 [H] | S4 |
+| Injury pressure | – | N/m | 1600 [H]; off by default | S4, obstacle |
+| Exit memory learn / forget | $\tau_+,\tau_-$ | s | 2 / 10 [K] | OEK |
 | Deadlock window / ratio | – | ticks / – | 3 / 1/3 | ξ [F] |
 | Group attraction strength | $A_g$ | N | 800.0 | S6, peer pairs [U] |
 | Cohesion radius | $d_g$ | m | 1.5 | S6 [U] |
@@ -354,6 +381,8 @@ State locking [S]: once past ALERT, no trigger re-enters NORMAL or ALERT.
 
 $OEK_{ik'}{:}0{\to}1$ when exit $k'$ is within $R_{vis}$, or when $\#\{j\in R_{vis}:tgt_j=k',\ hd_j\ne hd_i\}>N_{trust}$. Each agent starts knowing its entry exit.
 
+**Exit knowledge is personal** (this is what makes routes differ): an agent plans only over the exits it knows, $K'_i$, never over the full building. Initial $K'_i$ comes from its role and experience (staff know the exits they use and have drilled; visitors only their entry exit plus signposted ones); the rest is learnt from what it sees within $R_{vis}$ or from other people, as above. A blocked door or a gassed exit is discovered the same way: only when it is within $R_{vis}$, or told by a responder or the PA. [K] adds memory to this: knowledge of an exit builds while it is in sight ($\tau_+=2$ s) and fades when out of sight ($\tau_-=10$ s). Use this optional continuous form when an agent can lose track of an exit in a dense or smoky crowd.
+
 **Orthogonal health state** (H₂S, [X] mapping of the [U] bands; worst state reached is latched):
 - UNHARMED: B0–B1.
 - MINOR: B2. Also sets OGK=1.
@@ -404,7 +433,7 @@ class AgentState:
     id: int; building: int | None; node: str
     x: np.ndarray; v: np.ndarray            # L1 (x,y) m if INDOOR_SFM; L3 (X,Y) if OUTDOOR_MACRO
     domain: Domain = Domain.INDOOR_SFM; link: tuple[str, str] | None = None
-    m: float = 80.0; r: float = 0.2; v0: float = 1.19; tau: float = 0.5
+    m: float = 80.0; r: float = 0.3; v0: float = 1.19; tau: float = 0.5   # r ~ U[0.25,0.35] [H]; v0 per agent profile
     group: int | None = None; peers: tuple[int, ...] = ()   # S6 designated pairs
     is_guider: bool = False; persona: str = "adult_M"
     state: St = St.NORMAL; sub: Sub | None = None; nav: Nav = Nav.EIKONAL
@@ -472,6 +501,9 @@ class SimConfig:
 | [M] 100 agents / 1 exit, 50 s | evacuated 38.7 (no guider) → 44.4 (3% guiders) |
 | [M] 100 agents / 2 exits | 77.7 → 91.1 |
 | [M] 200 agents / 2 exits | 119.2 → 191.5 (3%), 193.7 (5%) |
+| [H] 1 m door, $v^0\approx0.8$ m/s (calibration case for A, B) | 0.73 ped/s |
+| [H] 15×15 m room, 1 m exit, rising $v^0$ | flow rises up to $v^0\approx1.5$ m/s, then falls (faster-is-slower); irregular clogging above 1.5 m/s |
+| [W] uni-directional corridor | speed–density curve N4W within the published scatter; SFM failing this ⇒ add the [P] self-stopping rule |
 | [F] 15×15 m room, 1 m exit, N=50 | 25.0 s (range 19.4–33.9), 1.93 p/s |
 | [F] N = 100 / 150 / 200 / 250 / 300 | 2.01 / 1.87 / 1.80 / 1.79 / 1.73 p/s |
 | [F] trim 25° / 30° (N=100) | 0.90 / 0.25 p/s; 374 s at 30° |
