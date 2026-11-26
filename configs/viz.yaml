@@ -1,0 +1,144 @@
+# Visualisation palette and legend data (spec §1.1). No Python module
+# hard-codes a color/marker — everything here is loaded by dms/viz/viz_config.py.
+
+colors:
+  category:
+    outside: "#dfe7ef"    # 2 m margin
+    wall: "#2b2b2b"
+    room: "#e8e4d9"
+    corridor: "#cfe3f0"
+    stub: "#bcd7ea"
+    stair: "#3d7ea6"
+    void: "#c9b7e0"       # not walkable
+    obstacle: "#8a8f98"   # furniture (static)
+
+  door: "#8b6f47"         # thin brown/tan — must not look like an exit
+
+  exit:
+    AVAILABLE: "#00A651"       # bright green
+    PARTIAL: "#F39C12"         # amber
+    UNAVAILABLE: "#C0392B"     # red
+    BLOCKED_UNKNOWN: "#C0392B" # red, hatched (see `hatch` below) — "known to be
+                                # blocked" vs "blocked but agents don't know
+                                # yet" are told apart by the hatch, not color
+
+  assembly_point: "#F1C40F"  # gold
+  hazard: "#D62828"          # red star
+  hazard_room_tint: "#fbeaea"  # light red tint for rooms that contain a hazard source (not Space.restricted)
+
+  site:
+    open_ground: "#c5d6a1"
+    building: "#a8c5d4"
+    obstacle: "#8a8f98"
+    agent: "#2563eb"
+    walkway: "#7a5c2e"       # darker, higher-contrast than the original #d9cba3
+    # (that tan was nearly the same luminance as open_ground's sage green and essentially invisible;
+    # walkways were flagged as not "clearly visible")
+    walkway_outline: "#2b2b2b"  # dark halo stroke drawn under the walkway
+    # line itself, so it reads against open ground AND the lighter building-footprint fill alike
+    fence: "#4b2e2e"
+    gate_open: "#2e7d32"
+    structure: "#5c6672"
+
+  # spec §4: evacuation walker agent-state palette (dms/viz/evacuation_video.py).
+  agent_state:
+    PRE: "#FFFFFF"
+    MOVE: "#1F6FD1"
+    QUEUE: "#8E44AD"
+    DISC: "#E31A1C"
+    rerouted: "#F28E2B"   # a MOVE-state agent that has discovered a BLOCKED_UNKNOWN exit (know=True)
+    IN_REFUGE: "#16A34A"  # safe, awaiting assisted evacuation (distinct green, not MOVE blue)
+  agent_pre_edge_color: "#555555"
+  agent_outline: "#1f2933"  # thin dark outline on every true-body-size agent marker,
+  # so a pale agent colour (PRE's white, for one) still shows up against a light corridor/open-ground fill
+
+  # Refuge areas + wayfinding signs (dms/viz/plot.py).
+  refuge_fill: "#A7F3D0"
+  refuge_edge: "#047857"
+  sign_arrow: "#0E7490"
+  sign_stair_box: "#334155"  # stair-sign "down to floor N" marker fill
+
+exit_markers:
+  UNAVAILABLE: "x"
+  BLOCKED_UNKNOWN: "x"
+
+hatch:
+  BLOCKED_UNKNOWN: "////"
+
+# §4.1 obstacle type -> single-letter/short initial shown on its marker.
+# Wired up once Obstacle.type exists (spec §4) — the table
+# is loaded now so viz code never needs its own copy.
+obstacle_initials:
+  table: "T"
+  chair: "C"
+  sofa: "S"
+  bench: "S"
+  cabinet: "Cb"
+  vending_machine: "V"
+  water_cooler: "W"
+  printer: "P"
+  trolley: "Tr"
+  plant_pot: "Pp"
+  reception_desk: "R"
+  maintenance_barrier: "M"
+
+# Quick progress diagnostics
+# (dms/viz/progress_body_classes.py), not the full presentation layout --
+# every size/colour/clip-length lives here, never in the script.
+progress_diagnostics:
+  fig_width_px: 1920
+  fig_height_px: 1080
+  dpi: 120
+  table_fontsize_px: 11
+  clip_seconds: 90.0
+  clip_fps: 6
+  # 4-way clearance-by-class shading (ordered least-to-most restrictive body
+  # size that can still occupy a cell/pass a door).
+  class_shade_colors:
+    all_classes: "#d4ecd0"      # clear even for the wheelchair class (largest radius)
+    not_wheelchair: "#fde9a8"   # clear up to mobility_aid, not wheelchair
+    not_mobility_aid: "#f5c08a" # clear up to large, not mobility_aid
+    standard_only: "#e59a9a"    # clear only for standard
+  agent_class_colors:
+    standard: "#1F6FD1"
+    large: "#8E44AD"
+    mobility_aid: "#F28E2B"
+    wheelchair: "#C0392B"
+  awaiting_refuge_ring_color: "#111827"
+
+# The presentation layout (dms/viz/presentation.py,
+# dms/viz/status_panel.py) -- title bar / equal-scale GF+FF main area /
+# bottom band (site map, status panel, legend). Every size here is a
+# pixel value "at 1080p" (the preview resolution); a 16:9in figure
+# rendered at 120 dpi (preview) or 240 dpi (pitch, exactly 2x) converts
+# point sizes to the same ON-SCREEN size at both resolutions. Colour
+# choices stay close to the rest of the project's established green/
+# amber/red/grey exit palette for consistency, but every non-AVAILABLE
+# state also carries a hatch, so state is never colour-only (colour-blind
+# safe via colour+pattern dual-coding, not a full palette swap).
+presentation:
+  resolutions:
+    preview: [1920, 1080]
+    pitch: [3840, 2160]
+  preview_dpi: 120     # 1920/16 == 1080/9 -- exact for a 16:9in figure
+  pitch_dpi: 240        # 3840/16 == 2160/9 -- exactly 2x preview_dpi
+  min_text_px: 14       # [U] spec: text is at least 14px at 1080p
+  min_agent_px: 3        # [U] spec: agent marker is at least 3px on screen
+  target_px_per_m: 9     # [U] spec: at least 9 px/m at 1080p in the main floor-plan area
+  scale_bar_m: 10.0      # [U] reference length drawn by the scale bar on every map panel
+  title_fontsize_px: 20
+  subtitle_fontsize_px: 13
+  clock_fontsize_px: 22
+  room_label_fontsize_px: 10  # [U] kept below min_text_px on purpose -- see room_labels_pitch_only
+  room_labels_pitch_only: true  # [U] Room-use labels are small text inside often-small
+  # rooms -- shown only in the 4K "pitch" render (where there's headroom to zoom in), hidden at 1080p
+  # "preview" to avoid unreadable clutter, rather than forced to >=min_text_px everywhere
+  exit_label_fontsize_px: 15  # [U] >= min_text_px -- was 8px, unreadable at 1080p
+  exit_bar_width_px: 5   # [U] thick wall-bar stroke width
+  hazard_inactive_alpha: 0.25  # [U] fade factor for a hazard source this scenario doesn't activate
+  exit_bar_colors:
+    AVAILABLE: "#00A651"
+    PARTIAL: "#F39C12"
+    LOCKED: "#8a8f98"         # UNAVAILABLE by declared state ("locked"), always hatched
+    BLOCKED_KNOWN: "#C0392B"   # BLOCKED_UNKNOWN, discovered -- solid
+    BLOCKED_UNDISCOVERED: "#C0392B"  # BLOCKED_UNKNOWN, not yet discovered -- hatched

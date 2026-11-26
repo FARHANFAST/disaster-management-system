@@ -1,0 +1,542 @@
+# Irregular 3-storey building fixture -- proves the N-floor
+# generalization (Stair.landings subsets, recursive Eikonal coupling, redundancy.py
+# genericity) against a building that is NOT a scaled repeat of two_storey.yaml:
+# a stair spanning only floors L1-L2 (ST-SUB), an external fire stair (ST-FIRE) with
+# its own direct exterior discharge, an L-shaped corridor (corr-A + corr-B meeting at
+# a right-angle corner), and L3's internal layout genuinely differing from L2's (the
+# ST-SUB slot becomes two ordinary offices instead of a stair).
+#
+# Generated once by a scratch script (not committed) and then hand-reviewed; this file
+# itself is the static, authoritative fixture -- it is not regenerated at test time.
+
+site:
+  name: Irregular 3-storey fixture (N-floor generality proof)
+  width_m: 160.0
+  height_m: 160.0
+  assembly_points:
+  - {id: AP3-S, x: 80.0, y: 25.0, diameter_m: 15.0}
+  - {id: AP3-N, x: 80.0, y: 135.0, diameter_m: 15.0}
+  structures:
+  - {id: pipe-rack-3, x0: 125.0, y0: 75.0, x1: 135.0, y1: 80.0, type: pipe_rack}
+  hazards:
+  - {id: H3-outdoor, species: H2S, mw: 34.08, x: 130.0, y: 77.5, z: 2.0, purpose: outdoor pipe rack}
+  walkways:
+  - {id: WK3-S, points: [[80.0, 68.0], [80.0, 50.0], [80.0, 25.0]], width_m: 3.0}
+  - {id: WK3-N, points: [[80.0, 92.0], [80.0, 110.0], [80.0, 135.0]], width_m: 3.0}
+  - {id: WK3-W, points: [[58.0, 80.0], [40.0, 80.0]], width_m: 3.0}
+  - {id: WK3-E, points: [[102.0, 80.0], [120.0, 80.0]], width_m: 3.0}
+  # Second, independent gates + spurs: without these,
+  # AP3-S/AP3-N each had exactly one gate/walkway chain in, a single point
+  # of failure for the whole site -- each crosses the fence only at its own
+  # gate, never elsewhere.
+  - {id: WK3-S2, points: [[60.0, 68.0], [60.0, 50.0], [80.0, 25.0]], width_m: 3.0}
+  - {id: WK3-N2, points: [[100.0, 92.0], [100.0, 110.0], [80.0, 135.0]], width_m: 3.0}
+  fences:
+  - {id: PERIMETER3, points: [[40.0, 50.0], [120.0, 50.0], [120.0, 110.0], [40.0, 110.0], [40.0, 50.0]]}
+  gates:
+  - {id: GATE3-S2, fence_id: PERIMETER3, x: 60.0, y: 50.0, width_m: 6.0, default_state: AVAILABLE}
+  - {id: GATE3-N2, fence_id: PERIMETER3, x: 100.0, y: 110.0, width_m: 6.0, default_state: AVAILABLE}
+  - {id: GATE3-S, fence_id: PERIMETER3, x: 80.0, y: 50.0, width_m: 6.0, default_state: AVAILABLE}
+  - {id: GATE3-N, fence_id: PERIMETER3, x: 80.0, y: 110.0, width_m: 6.0, default_state: AVAILABLE}
+  - {id: GATE3-W, fence_id: PERIMETER3, x: 40.0, y: 80.0, width_m: 6.0, default_state: AVAILABLE}
+  - {id: GATE3-E, fence_id: PERIMETER3, x: 120.0, y: 80.0, width_m: 6.0, default_state: AVAILABLE}
+  weather_stations:
+  - {id: WX3-1, x: 45.0, y: 105.0, wind_from_deg: 180.0}
+buildings:
+- id: B2
+  origin: {x: 58.0, y: 68.0}
+  rotation_deg: 0.0
+  wall_thickness_m: 0.2
+  floor_to_floor_m: 4.0
+  designed_dead_ends: []
+  window_rule: {width_m: 1.5, spacing_m: 3.0, sill_height_m: 0.9, perm_closed: 0.02, perm_open: 0.5}
+  floors:
+  - id: L1
+    z: 0.0
+    footprint: {x0: 0.0, y0: 0.0, x1: 44.0, y1: 24.0}
+    spaces:
+    - id: S1a
+      name: Office
+      kind: room
+      use: office
+      rect: {x0: 0.0, y0: 0.0, x1: 4.4, y1: 9.0}
+      doors:
+      - {id: S1a-d1, wall: y=9, lo: 1.6, hi: 2.8}
+    - id: S1b
+      name: Office
+      kind: room
+      use: office
+      rect: {x0: 4.4, y0: 0.0, x1: 8.8, y1: 9.0}
+      doors:
+      - {id: S1b-d1, wall: y=9, lo: 6.0, hi: 7.2}
+    - id: S2
+      name: Main lobby
+      kind: room
+      use: lobby
+      rect: {x0: 8.8, y0: 0.0, x1: 17.6, y1: 9.0}
+      doors:
+      - {id: S2-d1, wall: y=9, lo: 12.6, hi: 13.8}
+    - id: S3a
+      name: Office
+      kind: room
+      use: office
+      rect: {x0: 17.6, y0: 0.0, x1: 22.0, y1: 9.0}
+      doors:
+      - {id: S3a-d1, wall: y=9, lo: 19.2, hi: 20.4}
+    - id: S3b
+      name: Office
+      kind: room
+      use: office
+      rect: {x0: 22.0, y0: 0.0, x1: 26.4, y1: 9.0}
+      doors:
+      - {id: S3b-d1, wall: y=9, lo: 23.6, hi: 24.8}
+    - id: S4
+      name: Utility plant room
+      kind: room
+      use: plant_room
+      rect: {x0: 26.4, y0: 0.0, x1: 35.2, y1: 9.0}
+      restricted: true
+      doors:
+      - {id: S4-d1, wall: y=9, lo: 30.2, hi: 31.4}
+    - id: S5a
+      name: Office
+      kind: room
+      use: office
+      rect: {x0: 35.2, y0: 0.0, x1: 39.6, y1: 9.0}
+      doors:
+      - {id: S5a-d1, wall: y=9, lo: 36.8, hi: 38.0}
+    - id: S5b
+      name: Office
+      kind: room
+      use: office
+      rect: {x0: 39.6, y0: 0.0, x1: 44.0, y1: 9.0}
+      doors:
+      - {id: S5b-d1, wall: y=9, lo: 41.2, hi: 42.4}
+    - id: corr-A
+      name: Main corridor
+      kind: corridor
+      rect: {x0: 0.0, y0: 9.0, x1: 44.0, y1: 12.0}
+    - id: ST-W
+      name: West stair (enclosed)
+      kind: stair
+      rect: {x0: 0.0, y0: 12.0, x1: 6.0, y1: 24.0}
+    - id: corr-B
+      name: North wing corridor (L-leg)
+      kind: corridor
+      rect: {x0: 6.0, y0: 12.0, x1: 9.0, y1: 24.0}
+      notes: 'The required L-shaped corridor -- meets corr-A at a right-angle corner
+        via a corridor_opening, same pattern as the two-storey building''s ring corners.'
+    - id: N1b
+      name: Office
+      kind: room
+      use: office
+      rect: {x0: 9.0, y0: 12.0, x1: 14.0, y1: 18.0}
+      doors:
+      - {id: N1b-d1, wall: y=12, lo: 10.5, hi: 11.5}
+    - id: N1
+      name: Rear office (served by L-corridor)
+      kind: room
+      use: office
+      rect: {x0: 9.0, y0: 18.0, x1: 14.0, y1: 24.0}
+      notes: only reachable via corr-B, the L-shaped corridor leg
+      doors:
+      - {id: N1-d1, wall: x=9, lo: 20.0, hi: 22.0}
+    - id: ST-C
+      name: Central stair (open, main)
+      kind: stair
+      rect: {x0: 14.0, y0: 12.0, x1: 20.0, y1: 24.0}
+      notes: no fire doors; gas can travel through it
+      openings:
+      - {id: ST-C-op-corrA, wall: y=12, lo: 16.0, hi: 18.0}
+    - id: ST-SUB
+      name: South-wing stair (floors 1-2 only)
+      kind: stair
+      rect: {x0: 20.0, y0: 12.0, x1: 26.0, y1: 24.0}
+      notes: 'Deliberately serves only L1/L2, not L3'
+    - id: N2
+      name: Office
+      kind: room
+      use: office
+      rect: {x0: 26.0, y0: 12.0, x1: 32.0, y1: 24.0}
+      doors:
+      - {id: N2-d1, wall: y=12, lo: 28.0, hi: 29.0}
+    - id: ST-E
+      name: East stair (enclosed)
+      kind: stair
+      rect: {x0: 32.0, y0: 12.0, x1: 38.0, y1: 24.0}
+    - id: ST-FIRE
+      name: External fire stair
+      kind: stair
+      rect: {x0: 38.0, y0: 12.0, x1: 44.0, y1: 24.0}
+      notes: 'External fire stair -- direct exterior discharge, no dependency on the
+        interior corridor network'
+    corridor_openings:
+    - {id: corr-L-junction, wall: y=12, lo: 6.0, hi: 9.0}
+    exits:
+    - {id: X-S, space: S2, wall: y=0, lo: 12.0, hi: 14.4, kind: main}
+    - {id: X-S1a, space: S1a, wall: y=0, lo: 1.6, hi: 3.1, kind: secondary}
+    - {id: X-S5b, space: S5b, wall: y=0, lo: 41.0, hi: 42.5, kind: secondary}
+    - {id: X-W-STW, space: ST-W, wall: x=0, lo: 16.0, hi: 17.5, kind: stair_discharge}
+    - {id: X-E-STFIRE, space: ST-FIRE, wall: x=44, lo: 16.0, hi: 17.5, kind: stair_discharge}
+    - {id: X-N1, space: N1, wall: y=24, lo: 10.5, hi: 12.0, kind: secondary}
+    - {id: X-SVC, space: S4, wall: y=0, lo: 29.8, hi: 31.8, kind: service, default_state: UNAVAILABLE}
+    - {id: X-N2, space: N2, wall: y=24, lo: 28.0, hi: 29.5, kind: secondary}
+    hazards:
+    - {id: H3S-1, space: S4, x: 30.8, y: 4.5, z: 1.0, purpose: ground-floor utility plant leak}
+  - id: L2
+    z: 4.0
+    footprint: {x0: 0.0, y0: 0.0, x1: 44.0, y1: 24.0}
+    spaces:
+    - id: S1a
+      name: Office
+      kind: room
+      use: office
+      rect: {x0: 0.0, y0: 0.0, x1: 4.4, y1: 9.0}
+      doors:
+      - {id: S1a-d1, wall: y=9, lo: 1.6, hi: 2.8}
+    - id: S1b
+      name: Office
+      kind: room
+      use: office
+      rect: {x0: 4.4, y0: 0.0, x1: 8.8, y1: 9.0}
+      doors:
+      - {id: S1b-d1, wall: y=9, lo: 6.0, hi: 7.2}
+    - id: S2
+      name: Main lobby
+      kind: room
+      use: lobby
+      rect: {x0: 8.8, y0: 0.0, x1: 17.6, y1: 9.0}
+      doors:
+      - {id: S2-d1, wall: y=9, lo: 12.6, hi: 13.8}
+    - id: S3a
+      name: Office
+      kind: room
+      use: office
+      rect: {x0: 17.6, y0: 0.0, x1: 22.0, y1: 9.0}
+      doors:
+      - {id: S3a-d1, wall: y=9, lo: 19.2, hi: 20.4}
+    - id: S3b
+      name: Office
+      kind: room
+      use: office
+      rect: {x0: 22.0, y0: 0.0, x1: 26.4, y1: 9.0}
+      doors:
+      - {id: S3b-d1, wall: y=9, lo: 23.6, hi: 24.8}
+    - id: S4
+      name: Utility plant room
+      kind: room
+      use: plant_room
+      rect: {x0: 26.4, y0: 0.0, x1: 35.2, y1: 9.0}
+      restricted: true
+      doors:
+      - {id: S4-d1, wall: y=9, lo: 30.2, hi: 31.4}
+    - id: S5a
+      name: Office
+      kind: room
+      use: office
+      rect: {x0: 35.2, y0: 0.0, x1: 39.6, y1: 9.0}
+      doors:
+      - {id: S5a-d1, wall: y=9, lo: 36.8, hi: 38.0}
+    - id: S5b
+      name: Office
+      kind: room
+      use: office
+      rect: {x0: 39.6, y0: 0.0, x1: 44.0, y1: 9.0}
+      doors:
+      - {id: S5b-d1, wall: y=9, lo: 41.2, hi: 42.4}
+    - id: corr-A
+      name: Main corridor
+      kind: corridor
+      rect: {x0: 0.0, y0: 9.0, x1: 44.0, y1: 12.0}
+    - id: ST-W
+      name: West stair (enclosed)
+      kind: stair
+      rect: {x0: 0.0, y0: 12.0, x1: 6.0, y1: 24.0}
+    - id: corr-B
+      name: North wing corridor (L-leg)
+      kind: corridor
+      rect: {x0: 6.0, y0: 12.0, x1: 9.0, y1: 24.0}
+      notes: 'The required L-shaped corridor -- meets corr-A at a right-angle corner
+        via a corridor_opening, same pattern as the two-storey building''s ring corners.'
+    - id: N1b
+      name: Office
+      kind: room
+      use: office
+      rect: {x0: 9.0, y0: 12.0, x1: 14.0, y1: 18.0}
+      doors:
+      - {id: N1b-d1, wall: y=12, lo: 10.5, hi: 11.5}
+    - id: N1
+      name: Rear office (served by L-corridor)
+      kind: room
+      use: office
+      rect: {x0: 9.0, y0: 18.0, x1: 14.0, y1: 24.0}
+      notes: only reachable via corr-B, the L-shaped corridor leg
+      doors:
+      - {id: N1-d1, wall: x=9, lo: 20.0, hi: 22.0}
+    - id: ST-C
+      name: Central stair (open, main)
+      kind: stair
+      rect: {x0: 14.0, y0: 12.0, x1: 20.0, y1: 24.0}
+      notes: no fire doors; gas can travel through it
+      openings:
+      - {id: ST-C-op-corrA, wall: y=12, lo: 16.0, hi: 18.0}
+    - id: ST-SUB
+      name: South-wing stair (floors 1-2 only)
+      kind: stair
+      rect: {x0: 20.0, y0: 12.0, x1: 26.0, y1: 24.0}
+      notes: 'Deliberately serves only L1/L2, not L3'
+    - id: N2
+      name: Utility plant room
+      kind: room
+      use: plant_room
+      rect: {x0: 26.0, y0: 12.0, x1: 32.0, y1: 24.0}
+      doors:
+      - {id: N2-d1, wall: y=12, lo: 28.0, hi: 29.0}
+      restricted: true
+    - id: ST-E
+      name: East stair (enclosed)
+      kind: stair
+      rect: {x0: 32.0, y0: 12.0, x1: 38.0, y1: 24.0}
+    - id: ST-FIRE
+      name: External fire stair
+      kind: stair
+      rect: {x0: 38.0, y0: 12.0, x1: 44.0, y1: 24.0}
+      notes: 'External fire stair -- direct exterior discharge, no dependency on the
+        interior corridor network'
+    corridor_openings:
+    - {id: corr-L-junction, wall: y=12, lo: 6.0, hi: 9.0}
+    exits: []
+    hazards:
+    - {id: H3S-2, space: N2, x: 29.0, y: 18.0, z: 1.0, purpose: upper-floor utility plant leak}
+  - id: L3
+    z: 8.0
+    footprint: {x0: 0.0, y0: 0.0, x1: 44.0, y1: 24.0}
+    spaces:
+    - id: S1a
+      name: Office
+      kind: room
+      use: office
+      rect: {x0: 0.0, y0: 0.0, x1: 4.4, y1: 9.0}
+      doors:
+      - {id: S1a-d1, wall: y=9, lo: 1.6, hi: 2.8}
+    - id: S1b
+      name: Office
+      kind: room
+      use: office
+      rect: {x0: 4.4, y0: 0.0, x1: 8.8, y1: 9.0}
+      doors:
+      - {id: S1b-d1, wall: y=9, lo: 6.0, hi: 7.2}
+    - id: S2
+      name: Main lobby
+      kind: room
+      use: lobby
+      rect: {x0: 8.8, y0: 0.0, x1: 17.6, y1: 9.0}
+      doors:
+      - {id: S2-d1, wall: y=9, lo: 12.6, hi: 13.8}
+    - id: S3a
+      name: Office
+      kind: room
+      use: office
+      rect: {x0: 17.6, y0: 0.0, x1: 22.0, y1: 9.0}
+      doors:
+      - {id: S3a-d1, wall: y=9, lo: 19.2, hi: 20.4}
+    - id: S3b
+      name: Office
+      kind: room
+      use: office
+      rect: {x0: 22.0, y0: 0.0, x1: 26.4, y1: 9.0}
+      doors:
+      - {id: S3b-d1, wall: y=9, lo: 23.6, hi: 24.8}
+    - id: S4
+      name: Utility plant room
+      kind: room
+      use: plant_room
+      rect: {x0: 26.4, y0: 0.0, x1: 35.2, y1: 9.0}
+      restricted: true
+      doors:
+      - {id: S4-d1, wall: y=9, lo: 30.2, hi: 31.4}
+    - id: S5a
+      name: Office
+      kind: room
+      use: office
+      rect: {x0: 35.2, y0: 0.0, x1: 39.6, y1: 9.0}
+      doors:
+      - {id: S5a-d1, wall: y=9, lo: 36.8, hi: 38.0}
+    - id: S5b
+      name: Office
+      kind: room
+      use: office
+      rect: {x0: 39.6, y0: 0.0, x1: 44.0, y1: 9.0}
+      doors:
+      - {id: S5b-d1, wall: y=9, lo: 41.2, hi: 42.4}
+    - id: corr-A
+      name: Main corridor
+      kind: corridor
+      rect: {x0: 0.0, y0: 9.0, x1: 44.0, y1: 12.0}
+    - id: ST-W
+      name: West stair (enclosed)
+      kind: stair
+      rect: {x0: 0.0, y0: 12.0, x1: 6.0, y1: 24.0}
+    - id: corr-B
+      name: North wing corridor (L-leg)
+      kind: corridor
+      rect: {x0: 6.0, y0: 12.0, x1: 9.0, y1: 24.0}
+      notes: 'The required L-shaped corridor -- meets corr-A at a right-angle corner
+        via a corridor_opening, same pattern as the two-storey building''s ring corners.'
+    - id: N1b
+      name: Office
+      kind: room
+      use: office
+      rect: {x0: 9.0, y0: 12.0, x1: 14.0, y1: 18.0}
+      doors:
+      - {id: N1b-d1, wall: y=12, lo: 10.5, hi: 11.5}
+    - id: N1
+      name: Rear office (served by L-corridor)
+      kind: room
+      use: office
+      rect: {x0: 9.0, y0: 18.0, x1: 14.0, y1: 24.0}
+      notes: only reachable via corr-B, the L-shaped corridor leg
+      doors:
+      - {id: N1-d1, wall: x=9, lo: 20.0, hi: 22.0}
+    - id: ST-C
+      name: Central stair (open, main)
+      kind: stair
+      rect: {x0: 14.0, y0: 12.0, x1: 20.0, y1: 24.0}
+      notes: no fire doors; gas can travel through it
+      openings:
+      - {id: ST-C-op-corrA, wall: y=12, lo: 16.0, hi: 18.0}
+    - id: L3-M1
+      name: Office (L3-only layout)
+      kind: room
+      use: office
+      rect: {x0: 20.0, y0: 12.0, x1: 23.0, y1: 24.0}
+      doors:
+      - {id: L3-M1-d1, wall: y=12, lo: 21.0, hi: 22.0}
+    - id: L3-M2
+      name: Office (L3-only layout)
+      kind: room
+      use: office
+      rect: {x0: 23.0, y0: 12.0, x1: 26.0, y1: 24.0}
+      doors:
+      - {id: L3-M2-d1, wall: y=12, lo: 24.0, hi: 25.0}
+    - id: N2
+      name: Office
+      kind: room
+      use: office
+      rect: {x0: 26.0, y0: 12.0, x1: 32.0, y1: 24.0}
+      doors:
+      - {id: N2-d1, wall: y=12, lo: 28.0, hi: 29.0}
+    - id: ST-E
+      name: East stair (enclosed)
+      kind: stair
+      rect: {x0: 32.0, y0: 12.0, x1: 38.0, y1: 24.0}
+    - id: ST-FIRE
+      name: External fire stair
+      kind: stair
+      rect: {x0: 38.0, y0: 12.0, x1: 44.0, y1: 24.0}
+      notes: 'External fire stair -- direct exterior discharge, no dependency on the
+        interior corridor network'
+    corridor_openings:
+    - {id: corr-L-junction, wall: y=12, lo: 6.0, hi: 9.0}
+    exits: []
+    hazards: []
+  stairs:
+  - id: ST-W
+    landings:
+    - {floor: L1, space: ST-W}
+    - {floor: L2, space: ST-W}
+    - {floor: L3, space: ST-W}
+    width_m: 1.2
+    riser_m: 0.17
+    tread_m: 0.28
+    flights: 2
+    chi: 0.7
+    enclosed: true
+    discharge_exit: X-W-STW
+    fire_doors:
+    - {floor: L1, wall: y=12, lo: 2.0, hi: 4.0}
+    - {floor: L2, wall: y=12, lo: 2.0, hi: 4.0}
+    - {floor: L3, wall: y=12, lo: 2.0, hi: 4.0}
+  - id: ST-E
+    landings:
+    - {floor: L1, space: ST-E}
+    - {floor: L2, space: ST-E}
+    - {floor: L3, space: ST-E}
+    width_m: 1.5
+    riser_m: 0.17
+    tread_m: 0.28
+    flights: 2
+    chi: 0.7
+    enclosed: true
+    fire_doors:
+    - {floor: L1, wall: y=12, lo: 34.0, hi: 36.0}
+    - {floor: L2, wall: y=12, lo: 34.0, hi: 36.0}
+    - {floor: L3, wall: y=12, lo: 34.0, hi: 36.0}
+  - id: ST-C
+    landings:
+    - {floor: L1, space: ST-C}
+    - {floor: L2, space: ST-C}
+    - {floor: L3, space: ST-C}
+    width_m: 2.4
+    riser_m: 0.17
+    tread_m: 0.28
+    flights: 2
+    chi: 0.7
+    enclosed: false
+    fire_doors: []
+  - id: ST-SUB
+    landings:
+    - {floor: L1, space: ST-SUB}
+    - {floor: L2, space: ST-SUB}
+    width_m: 1.2
+    riser_m: 0.17
+    tread_m: 0.28
+    flights: 2
+    chi: 0.7
+    enclosed: true
+    fire_doors:
+    - {floor: L1, wall: y=12, lo: 22.0, hi: 24.0}
+    - {floor: L2, wall: y=12, lo: 22.0, hi: 24.0}
+  - id: ST-FIRE
+    landings:
+    - {floor: L1, space: ST-FIRE}
+    - {floor: L2, space: ST-FIRE}
+    - {floor: L3, space: ST-FIRE}
+    width_m: 1.2
+    riser_m: 0.17
+    tread_m: 0.28
+    flights: 2
+    chi: 0.7
+    enclosed: true
+    discharge_exit: X-E-STFIRE
+    fire_doors:
+    - {floor: L1, wall: y=12, lo: 40.0, hi: 42.0}
+    - {floor: L2, wall: y=12, lo: 40.0, hi: 42.0}
+    - {floor: L3, wall: y=12, lo: 40.0, hi: 42.0}
+
+scenarios:
+  baseline:
+    events: []
+  # Hazard scenario interface -- data only, no dispersion
+  # physics yet. H3-outdoor (by the pipe rack, outdoor) is
+  # this site's only declared hazard source.
+  h3_release_day:
+    events: []
+    hazard:
+      active_sources: [H3-outdoor]
+      wind_from_deg: 180.0
+      wind_speed_mps: 1.25
+      stability: SE
+      releases:
+        H3-outdoor: {start_time_s: 60.0, duration_s: 300.0}
+    split: train
+  h3_release_windy:
+    events: []
+    hazard:
+      active_sources: all
+      wind_from_deg: {min: 0.0, max: 360.0}
+      wind_speed_mps: {min: 1.0, max: 6.0}
+      stability: D
+      releases:
+        H3-outdoor: {start_time_s: 30.0, duration_s: {min: 120.0, max: 600.0}}
+    split: test

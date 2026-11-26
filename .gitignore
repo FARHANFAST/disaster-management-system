@@ -1,0 +1,53 @@
+# Byte-compiled / optimized / cache files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+
+# Environment and IDE configs
+.venv/
+venv/
+ENV/
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Heavy simulation output artifacts, video, and image renders.
+# Reports and data the tests/player depend on (out/*.md, out/*.json) stay tracked.
+out/*.gif
+out/*.mp4
+out/*.npz
+out/*.png
+# Same convention for out/progress/ (quick diagnostic renders) -- a future
+# out/progress/*.md report would still be committed (not matched here).
+out/progress/*.gif
+out/progress/*.mp4
+out/progress/*.png
+*.log
+
+# Office lock files
+~$*
+
+# Independent reference checker, cross-check only -- never committed,
+# never imported from dms/ or tests/.
+reference/b1l/
+
+# Agent / assistant working files -- never part of the project history.
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+PROMPT_*.md
+DIRECTION_*.md
+docs/archive/
+
+# Caches and virtual environments
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+ENV/
+env/
+*.egg-info/

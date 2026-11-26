@@ -1,0 +1,18 @@
+# Milestone 1 (geometry + loader + validator):
+numpy>=1.24
+pyyaml>=6.0
+shapely>=2.0
+pytest>=8.0
+
+# Milestone 2 (grid rasterisation + viz):
+matplotlib>=3.7
+
+# Milestone 3 (L2 graph + A*):
+networkx>=3.1
+
+# Milestone 4 (Eikonal fields):
+scikit-fmm>=2023.4.2
+
+# Cell-level redundancy sweep, body-clear erosion —
+# also the independent b1l reference checker's own dependency:
+scipy>=1.11

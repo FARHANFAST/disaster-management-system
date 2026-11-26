@@ -1,0 +1,5 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "slow: full grid-connectivity sweeps / multi-hundred-agent runs, excluded from the fast edit loop (-m \"not slow\")",
+]

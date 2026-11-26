@@ -1,0 +1,1059 @@
+# Large two-storey building fixture, converted from the attached
+# two_storey_large.yaml (B1-L) by tools/convert_b1l.py. Every id/coordinate/
+# width/state value is copied verbatim from the source -- only the YAML's
+# structural shape changed (array rects, wall+span doors, building-level
+# stairs, etc. -> this loader's own schema). This file is the static,
+# authoritative fixture -- it is not regenerated at test time.
+
+site:
+  name: Two-storey large plant building site
+  width_m: 220.0
+  height_m: 170.0
+  assembly_points:
+  - {id: AP-N, x: 108.0, y: 150.0, diameter_m: 15.0}
+  - {id: AP-S, x: 140.0, y: 10.0, diameter_m: 15.0}
+  - {id: AP-W, x: 18.0, y: 82.0, diameter_m: 15.0}
+  - {id: AP-E, x: 202.0, y: 82.0, diameter_m: 15.0}
+  obstacles:
+  - {id: outbuilding, x0: 20, y0: 130, x1: 32, y1: 138, layer: static, type: building}
+  - {id: tank, x0: 189.0, y0: 24.0, x1: 201.0, y1: 36.0, layer: static, type: tank}
+  - {id: car-S0, x0: 96.0, y0: 46.5, x1: 98.0, y1: 51.0, layer: parking, active_by_default: false}
+  - {id: car-S1, x0: 101.0, y0: 46.5, x1: 103.0, y1: 51.0, layer: parking, active_by_default: false}
+  - {id: car-S2, x0: 106.0, y0: 46.5, x1: 108.0, y1: 51.0, layer: parking, active_by_default: false}
+  - {id: car-S3, x0: 111.0, y0: 46.5, x1: 113.0, y1: 51.0, layer: parking, active_by_default: false}
+  - {id: car-S4, x0: 116.0, y0: 46.5, x1: 118.0, y1: 51.0, layer: parking, active_by_default: false}
+  - {id: car-E0, x0: 158.5, y0: 76.0, x1: 163.0, y1: 78.0, layer: parking, active_by_default: false}
+  - {id: car-E1, x0: 158.5, y0: 81.0, x1: 163.0, y1: 83.0, layer: parking, active_by_default: false}
+  - {id: car-E2, x0: 158.5, y0: 86.0, x1: 163.0, y1: 88.0, layer: parking, active_by_default: false}
+  structures:
+  - {id: pipe-rack, x0: 175.0, y0: 24.0, x1: 188.0, y1: 29.0, type: pipe_rack}
+  - {id: tank-2, x0: 189.0, y0: 40.0, x1: 199.0, y1: 50.0, type: tank}
+  hazards:
+  - {id: H-4, species: H2S, mw: 34.08, x: 195.0, y: 30.0, z: 2.0, purpose: outdoor storage tank}
+  walkways:
+  - {id: WK-S, points: [[140.0, 55.0], [140.0, 40.0], [140.0, 10.0]], width_m: 3.0}
+  - {id: WK-W, points: [[60.0, 82.0], [45.0, 82.0], [18.0, 82.0]], width_m: 3.0}
+  - {id: WK-N, points: [[108.0, 109.0], [108.0, 124.0], [108.0, 150.0]], width_m: 3.0}
+  - {id: WK-E, points: [[156.0, 82.0], [171.0, 82.0], [202.0, 82.0]], width_m: 3.0}
+  fences:
+  - {id: PERIMETER, points: [[45.0, 40.0], [171.0, 40.0], [171.0, 124.0], [45.0, 124.0], [45.0, 40.0]]}
+  gates:
+  - {id: GATE-S, fence_id: PERIMETER, x: 140.0, y: 40.0, width_m: 6.0, default_state: AVAILABLE}
+  - {id: GATE-W, fence_id: PERIMETER, x: 45.0, y: 82.0, width_m: 6.0, default_state: AVAILABLE}
+  - {id: GATE-N, fence_id: PERIMETER, x: 108.0, y: 124.0, width_m: 6.0, default_state: AVAILABLE}
+  - {id: GATE-E, fence_id: PERIMETER, x: 171.0, y: 82.0, width_m: 6.0, default_state: AVAILABLE}
+  weather_stations:
+  - {id: WX-1, x: 150.0, y: 115.0, wind_from_deg: 225.0}
+buildings:
+- id: B1
+  origin: {x: 60.0, y: 55.0}
+  rotation_deg: 0.0
+  wall_thickness_m: 0.2
+  floor_to_floor_m: 4.0
+  designed_dead_ends: ['FF:F-01', 'FF:F-04', 'FF:F-05', 'FF:F-07', 'FF:F-09', 'FF:F-11', 'FF:F-12', 'FF:F-14', 'FF:F-15',
+    'FF:F-17', 'FF:F-20', 'GF:G-01', 'GF:G-02', 'GF:G-03', 'GF:G-04', 'GF:G-06', 'GF:G-07', 'GF:G-08', 'GF:G-09', 'GF:G-10',
+    'GF:G-11', 'GF:G-12', 'GF:G-14', 'GF:G-15', 'GF:G-17', 'GF:G-18', 'GF:G-19', 'GF:G-20', 'GF:G-22', 'GF:G-23', 'GF:G-24',
+    'GF:G-26', 'GF:G-28', 'GF:G-30', 'GF:G-31']
+  open_between_kinds:
+  - [corridor, corridor]
+  - [corridor, stub]
+  - [stub, stub]
+  obstacle_types:
+    table: {width_m: 1.6, height_m: 0.8}
+    chair: {width_m: 0.5, height_m: 0.5}
+    bench: {width_m: 2.0, height_m: 0.8}
+    sofa: {width_m: 2.0, height_m: 0.8}
+    cabinet: {width_m: 1.0, height_m: 0.6}
+    vending_machine: {width_m: 0.9, height_m: 0.8}
+    water_cooler: {width_m: 0.4, height_m: 0.4}
+    printer: {width_m: 0.8, height_m: 0.6}
+    trolley: {width_m: 1.2, height_m: 0.6}
+    plant_pot: {width_m: 0.5, height_m: 0.5}
+    reception_desk: {width_m: 2.4, height_m: 0.8}
+    maintenance_barrier: {width_m: 3.0, height_m: 0.2}
+    desk: {width_m: 1.6, height_m: 0.8}
+    console: {width_m: 2.0, height_m: 0.9}
+    lab_bench: {width_m: 3.0, height_m: 0.9}
+    workbench: {width_m: 3.0, height_m: 1.0}
+    cafe_table: {width_m: 1.2, height_m: 1.2}
+    seat_row: {width_m: 6.0, height_m: 0.6}
+  blocking_groups: [maintenance]
+  window_rule: {width_m: 1.5, spacing_m: 3.0, sill_height_m: 0.9, perm_closed: 0.02, perm_open: 0.5}
+  stairs:
+  - id: ST-W
+    landings:
+    - {floor: GF, space: ST-W}
+    - {floor: FF, space: ST-W}
+    width_m: 1.2
+    enclosed: true
+    riser_m: 0.17
+    tread_m: 0.28
+    flights: 2
+    chi: 0.7
+    landing_depth_m: 1.5
+    discharge_exit: X-NW
+    fire_doors:
+    - {floor: GF, id: 'GF:ST-W-d1', wall: x=10, lo: 26.0, hi: 27.5}
+    - {floor: FF, id: 'FF:ST-W-d1', wall: x=10, lo: 26.0, hi: 27.5}
+  - id: ST-E
+    landings:
+    - {floor: GF, space: ST-E}
+    - {floor: FF, space: ST-E}
+    width_m: 1.5
+    enclosed: true
+    riser_m: 0.17
+    tread_m: 0.28
+    flights: 2
+    chi: 0.7
+    landing_depth_m: 1.5
+    fire_doors:
+    - {floor: GF, id: 'GF:ST-E-d1', wall: x=86, lo: 13.0, hi: 14.5}
+    - {floor: FF, id: 'FF:ST-E-d1', wall: x=86, lo: 13.0, hi: 14.5}
+  - id: ST-C
+    landings:
+    - {floor: GF, space: ST-C}
+    - {floor: FF, space: ST-C}
+    width_m: 2.4
+    enclosed: false
+    riser_m: 0.17
+    tread_m: 0.28
+    flights: 2
+    chi: 0.7
+    landing_depth_m: 1.5
+  - id: ST-C2
+    landings:
+    - {floor: GF, space: ST-C2}
+    - {floor: FF, space: ST-C2}
+    width_m: 2.0
+    enclosed: false
+    riser_m: 0.17
+    tread_m: 0.28
+    flights: 2
+    chi: 0.7
+    landing_depth_m: 1.5
+  - id: ST-N
+    landings:
+    - {floor: GF, space: ST-N}
+    - {floor: FF, space: ST-N}
+    width_m: 1.5
+    enclosed: true
+    riser_m: 0.17
+    tread_m: 0.28
+    flights: 2
+    chi: 0.7
+    landing_depth_m: 1.5
+    fire_doors:
+    - {floor: GF, id: 'GF:ST-N-d1', wall: y=38.5, lo: 75.0, hi: 76.5}
+    - {floor: FF, id: 'FF:ST-N-d1', wall: y=38.5, lo: 75.0, hi: 76.5}
+  risers:
+  - id: RISER-1
+    a: {floor: FF, space: F-09}
+    b: {floor: GF, space: G-12}
+    coefficient: 0.3
+  occupancy_profiles:
+    office:
+      day: {density_per_m2: 0.1}
+      lunch: {density_per_m2: 0.033}
+      meeting: {density_per_m2: 0.05}
+      night: {density_per_m2: 0.0}
+    open_office:
+      day: {density_per_m2: 0.143}
+      lunch: {density_per_m2: 0.04}
+      meeting: {density_per_m2: 0.067}
+      night: {density_per_m2: 0.0}
+    control_room:
+      day: {count: 8}
+      lunch: {count: 8}
+      meeting: {count: 8}
+      night: {count: 6}
+    conference:
+      day: {density_per_m2: 0.0}
+      lunch: {density_per_m2: 0.0}
+      meeting: {density_per_m2: 0.667}
+      night: {density_per_m2: 0.0}
+    cafeteria:
+      day: {density_per_m2: 0.05}
+      lunch: {density_per_m2: 0.5}
+      meeting: {density_per_m2: 0.05}
+      night: {density_per_m2: 0.0}
+    lab:
+      day: {count: 4}
+      lunch: {count: 1}
+      meeting: {count: 2}
+      night: {count: 0}
+    training:
+      day: {density_per_m2: 0.0}
+      lunch: {density_per_m2: 0.0}
+      meeting: {density_per_m2: 0.5}
+      night: {density_per_m2: 0.0}
+    meeting:
+      day: {density_per_m2: 0.067}
+      lunch: {density_per_m2: 0.0}
+      meeting: {density_per_m2: 0.25}
+      night: {density_per_m2: 0.0}
+    workshop:
+      day: {density_per_m2: 0.033}
+      lunch: {density_per_m2: 0.0}
+      meeting: {density_per_m2: 0.02}
+      night: {density_per_m2: 0.0}
+    library:
+      day: {density_per_m2: 0.05}
+      lunch: {density_per_m2: 0.02}
+      meeting: {density_per_m2: 0.02}
+      night: {density_per_m2: 0.0}
+    store:
+      day:
+        count_range: [0, 1]
+      lunch:
+        count_range: [0, 0]
+      meeting:
+        count_range: [0, 1]
+      night:
+        count_range: [0, 0]
+    toilets:
+      day:
+        count_range: [0, 2]
+      lunch:
+        count_range: [0, 3]
+      meeting:
+        count_range: [0, 1]
+      night:
+        count_range: [0, 1]
+    plant_room:
+      day:
+        count_range: [0, 1]
+      lunch:
+        count_range: [0, 0]
+      meeting:
+        count_range: [0, 1]
+      night:
+        count_range: [0, 1]
+    chemical_store:
+      day:
+        count_range: [0, 1]
+      lunch:
+        count_range: [0, 0]
+      meeting:
+        count_range: [0, 1]
+      night:
+        count_range: [0, 1]
+    hvac_plant:
+      day:
+        count_range: [0, 1]
+      lunch:
+        count_range: [0, 0]
+      meeting:
+        count_range: [0, 1]
+      night:
+        count_range: [0, 1]
+    corridor:
+      day: {density_per_m2: 0.02}
+      lunch: {density_per_m2: 0.05}
+      meeting: {density_per_m2: 0.02}
+      night: {density_per_m2: 0.0}
+    lobby:
+      day: {density_per_m2: 0.02}
+      lunch: {density_per_m2: 0.05}
+      meeting: {density_per_m2: 0.02}
+      night: {density_per_m2: 0.0}
+  persona_mix:
+    # body_class_mix shares are [U] -- project defaults, not yet verified against
+    # a demographic/accessibility survey of a real comparable plant building.
+    adult_M: {share: 0.45, v0: 1.2, body_class_mix: {standard: 0.9, large: 0.1}}              # [U]
+    adult_F: {share: 0.4, v0: 1.1, body_class_mix: {standard: 0.9, large: 0.1}}                # [U]
+    elderly_M: {share: 0.08, v0: 0.7, body_class_mix: {standard: 0.7, mobility_aid: 0.3}}      # [U]
+    elderly_F: {share: 0.05, v0: 0.7, body_class_mix: {standard: 0.7, mobility_aid: 0.3}}      # [U]
+    mobility_impaired: {share: 0.02, v0: 0.5, body_class_mix: {wheelchair: 0.7, mobility_aid: 0.3}}  # [U]
+    operator: {share: 0.0, v0: 1.2, body_class_mix: {standard: 1.0}}                           # [U] (100% share is a mathematical identity, not itself a tag target)
+  floors:
+  - id: GF
+    z: 0.0
+    footprint: {x0: 0.0, y0: 0.0, x1: 96.0, y1: 54.0}
+    spaces:
+    - id: C-S
+      name: South corridor
+      kind: corridor
+      rect: {x0: 10, y0: 12, x1: 86, y1: 16}
+      use: corridor
+    - id: C-N
+      name: North corridor
+      kind: corridor
+      rect: {x0: 10, y0: 36, x1: 86, y1: 38.5}
+      use: corridor
+    - id: C-W
+      name: West corridor
+      kind: corridor
+      rect: {x0: 10, y0: 16, x1: 12, y1: 36}
+      use: corridor
+    - id: C-E
+      name: East corridor
+      kind: corridor
+      rect: {x0: 83, y0: 16, x1: 86, y1: 36}
+      use: corridor
+    - id: C-X1
+      name: Cross corridor 1
+      kind: corridor
+      rect: {x0: 30, y0: 16, x1: 32.5, y1: 36}
+      use: corridor
+    - id: C-X2
+      name: Cross corridor 2
+      kind: corridor
+      rect: {x0: 47, y0: 16, x1: 50, y1: 36}
+      use: corridor
+    - id: C-X3
+      name: Cross corridor 3
+      kind: corridor
+      rect: {x0: 65, y0: 16, x1: 67, y1: 36}
+      use: corridor
+    - id: ST-W
+      name: West fire stair
+      kind: stair
+      rect: {x0: 0, y0: 24, x1: 10, y1: 32}
+      use: stair
+    - id: ST-E
+      name: East fire stair
+      kind: stair
+      rect: {x0: 86, y0: 12, x1: 96, y1: 19}
+      use: stair
+    - id: ST-C
+      name: Main open stair
+      kind: stair
+      rect: {x0: 32.5, y0: 16, x1: 40.5, y1: 24}
+      use: stair
+      openings:
+      - {id: 'GF:ST-C-d1', wall: y=16, lo: 34.0, hi: 37.5}
+      - {id: 'GF:ST-C-d2', wall: x=32.5, lo: 18.0, hi: 21.0}
+    - id: ST-C2
+      name: Secondary open stair
+      kind: stair
+      rect: {x0: 57, y0: 28, x1: 65, y1: 36}
+      use: stair
+      openings:
+      - {id: 'GF:ST-C2-d1', wall: y=36, lo: 59.0, hi: 62.0}
+      - {id: 'GF:ST-C2-d2', wall: x=65, lo: 30.0, hi: 33.0}
+    - id: ST-N
+      name: North fire stair
+      kind: stair
+      rect: {x0: 72, y0: 38.5, x1: 80, y1: 46.5}
+      use: stair
+    - id: G-01
+      name: Workshop
+      kind: room
+      rect: {x0: 0, y0: 0, x1: 14, y1: 12}
+      use: workshop
+      doors:
+      - {id: 'GF:G-01-d1', wall: y=12, lo: 11.0, hi: 12.5, kind: interior}
+    - id: G-02
+      name: Office
+      kind: room
+      rect: {x0: 14, y0: 0, x1: 24, y1: 12}
+      use: office
+      doors:
+      - {id: 'GF:G-02-d1', wall: y=12, lo: 18.0, hi: 19.0, kind: interior}
+    - id: G-03
+      name: Office
+      kind: room
+      rect: {x0: 24, y0: 0, x1: 32, y1: 12}
+      use: office
+      doors:
+      - {id: 'GF:G-03-d1', wall: y=12, lo: 27.0, hi: 28.0, kind: interior}
+    - id: G-04
+      name: First aid / security
+      kind: room
+      rect: {x0: 32, y0: 0, x1: 40, y1: 12}
+      use: office
+      doors:
+      - {id: 'GF:G-04-d1', wall: y=12, lo: 35.0, hi: 36.0, kind: interior}
+    - id: LOBBY
+      name: Main lobby
+      kind: room
+      rect: {x0: 40, y0: 0, x1: 52, y1: 12}
+      use: lobby
+      openings:
+      - {id: 'GF:LOBBY-d1', wall: y=12, lo: 43.0, hi: 49.0}
+    - id: G-05
+      name: Cafeteria
+      kind: room
+      rect: {x0: 52, y0: 0, x1: 68, y1: 12}
+      use: cafeteria
+      doors:
+      - {id: 'GF:G-05-d1', wall: y=12, lo: 54.0, hi: 55.5, kind: interior}
+      - {id: 'GF:G-05-d2', wall: y=12, lo: 64.0, hi: 65.5, kind: interior}
+      - {id: 'GF:G-05-d3', wall: x=52, lo: 4.0, hi: 5.5, kind: interior}
+    - id: VEST-SE
+      name: South-east entrance
+      kind: stub
+      rect: {x0: 68, y0: 0, x1: 72, y1: 12}
+      use: corridor
+    - id: G-06
+      name: Office
+      kind: room
+      rect: {x0: 72, y0: 0, x1: 84, y1: 12}
+      use: office
+      doors:
+      - {id: 'GF:G-06-d1', wall: y=12, lo: 76.0, hi: 77.0, kind: interior}
+    - id: G-07
+      name: Chemical / gas store
+      kind: room
+      rect: {x0: 84, y0: 0, x1: 96, y1: 12}
+      use: chemical_store
+      restricted: true
+      doors:
+      - {id: 'GF:G-07-d1', wall: y=12, lo: 84.575, hi: 85.425, kind: interior}
+    - id: G-08
+      name: Office
+      kind: room
+      rect: {x0: 0, y0: 12, x1: 10, y1: 18}
+      use: office
+      doors:
+      - {id: 'GF:G-08-d1', wall: x=10, lo: 13.0, hi: 14.0, kind: interior}
+    - id: W-STUB
+      name: West exit corridor
+      kind: stub
+      rect: {x0: 0, y0: 18, x1: 10, y1: 20.5}
+      use: corridor
+    - id: G-09
+      name: Toilets
+      kind: room
+      rect: {x0: 0, y0: 20.5, x1: 10, y1: 24}
+      use: toilets
+      doors:
+      - {id: 'GF:G-09-d1', wall: x=10, lo: 21.575, hi: 22.425, kind: interior}
+    - id: G-10
+      name: Office
+      kind: room
+      rect: {x0: 0, y0: 32, x1: 10, y1: 38.5}
+      use: office
+      doors:
+      - {id: 'GF:G-10-d1', wall: x=10, lo: 33.0, hi: 34.0, kind: interior}
+    - id: G-11
+      name: Office
+      kind: room
+      rect: {x0: 86, y0: 19, x1: 96, y1: 26}
+      use: office
+      doors:
+      - {id: 'GF:G-11-d1', wall: x=86, lo: 22.0, hi: 23.0, kind: interior}
+    - id: E-STUB
+      name: East exit corridor
+      kind: stub
+      rect: {x0: 86, y0: 26, x1: 96, y1: 29}
+      use: corridor
+    - id: G-12
+      name: Utility & gas manifold room
+      kind: room
+      rect: {x0: 86, y0: 29, x1: 96, y1: 38.5}
+      use: plant_room
+      restricted: true
+      doors:
+      - {id: 'GF:G-12-d1', wall: x=86, lo: 31.075, hi: 31.925, kind: interior}
+    - id: G-13
+      name: Main control room (C2-MCR)
+      kind: room
+      rect: {x0: 0, y0: 38.5, x1: 16, y1: 54}
+      use: control_room
+      restricted: true
+      doors:
+      - {id: 'GF:G-13-d1', wall: y=38.5, lo: 11.0, hi: 12.5, kind: interior}
+      - {id: 'GF:G-13-d2', wall: y=38.5, lo: 14.0, hi: 15.5, kind: interior}
+    - id: G-14
+      name: Meeting room
+      kind: room
+      rect: {x0: 16, y0: 38.5, x1: 26, y1: 54}
+      use: meeting
+      doors:
+      - {id: 'GF:G-14-d1', wall: y=38.5, lo: 20.0, hi: 21.0, kind: interior}
+    - id: G-15
+      name: Office
+      kind: room
+      rect: {x0: 26, y0: 38.5, x1: 36, y1: 54}
+      use: office
+      doors:
+      - {id: 'GF:G-15-d1', wall: y=38.5, lo: 29.0, hi: 30.0, kind: interior}
+    - id: G-16
+      name: Laboratory
+      kind: room
+      rect: {x0: 36, y0: 38.5, x1: 47, y1: 54}
+      use: lab
+      doors:
+      - {id: 'GF:G-16-d1', wall: y=38.5, lo: 38.0, hi: 39.5, kind: interior}
+      - {id: 'GF:G-16-d2', wall: y=38.5, lo: 44.0, hi: 45.5, kind: interior}
+    - id: N-STUB
+      name: North exit corridor
+      kind: stub
+      rect: {x0: 47, y0: 38.5, x1: 50, y1: 54}
+      use: corridor
+    - id: G-17
+      name: Records
+      kind: room
+      rect: {x0: 50, y0: 38.5, x1: 60, y1: 54}
+      use: store
+      doors:
+      - {id: 'GF:G-17-d1', wall: y=38.5, lo: 54.075, hi: 54.925, kind: interior}
+    - id: G-18
+      name: Office
+      kind: room
+      rect: {x0: 60, y0: 38.5, x1: 72, y1: 54}
+      use: office
+      doors:
+      - {id: 'GF:G-18-d1', wall: y=38.5, lo: 63.0, hi: 64.0, kind: interior}
+      - {id: 'GF:G-18-d2', wall: x=72, lo: 50.0, hi: 51.0, kind: interior}
+    - id: G-19
+      name: Store
+      kind: room
+      rect: {x0: 72, y0: 46.5, x1: 80, y1: 54}
+      use: store
+    - id: G-20
+      name: Office
+      kind: room
+      rect: {x0: 80, y0: 38.5, x1: 96, y1: 54}
+      use: office
+      doors:
+      - {id: 'GF:G-20-d1', wall: y=38.5, lo: 82.0, hi: 83.5, kind: interior}
+    - id: G-21
+      name: Open-plan office
+      kind: room
+      rect: {x0: 12, y0: 16, x1: 30, y1: 26}
+      use: open_office
+      doors:
+      - {id: 'GF:G-21-d1', wall: y=16, lo: 16.0, hi: 17.5, kind: interior}
+      - {id: 'GF:G-21-d2', wall: x=12, lo: 20.0, hi: 21.5, kind: interior}
+      - {id: 'GF:G-21-d3', wall: x=30, lo: 21.0, hi: 22.5, kind: interior}
+    - id: G-22
+      name: Office
+      kind: room
+      rect: {x0: 12, y0: 26, x1: 21, y1: 36}
+      use: office
+      doors:
+      - {id: 'GF:G-22-d1', wall: y=36, lo: 15.0, hi: 16.0, kind: interior}
+    - id: G-23
+      name: Office
+      kind: room
+      rect: {x0: 21, y0: 26, x1: 30, y1: 36}
+      use: office
+      doors:
+      - {id: 'GF:G-23-d1', wall: x=30, lo: 30.0, hi: 31.0, kind: interior}
+    - id: G-24
+      name: Store
+      kind: room
+      rect: {x0: 40.5, y0: 16, x1: 47, y1: 24}
+      use: store
+      doors:
+      - {id: 'GF:G-24-d1', wall: x=47, lo: 19.075, hi: 19.925, kind: interior}
+    - id: G-25
+      name: Training room
+      kind: room
+      rect: {x0: 32.5, y0: 24, x1: 47, y1: 36}
+      use: training
+      doors:
+      - {id: 'GF:G-25-d1', wall: x=32.5, lo: 29.0, hi: 30.5, kind: interior}
+      - {id: 'GF:G-25-d2', wall: x=47, lo: 29.0, hi: 30.5, kind: interior}
+      - {id: 'GF:G-25-d3', wall: y=36, lo: 39.0, hi: 40.5, kind: interior}
+    - id: G-26
+      name: Office
+      kind: room
+      rect: {x0: 50, y0: 16, x1: 57, y1: 28}
+      use: office
+      doors:
+      - {id: 'GF:G-26-d1', wall: y=16, lo: 52.0, hi: 53.0, kind: interior}
+    - id: G-27
+      name: Office
+      kind: room
+      rect: {x0: 57, y0: 16, x1: 65, y1: 28}
+      use: office
+      doors:
+      - {id: 'GF:G-27-d1', wall: y=16, lo: 60.0, hi: 61.0, kind: interior}
+      - {id: 'GF:G-27-d2', wall: x=65, lo: 22.0, hi: 23.0, kind: interior}
+    - id: G-28
+      name: Meeting room
+      kind: room
+      rect: {x0: 50, y0: 28, x1: 57, y1: 36}
+      use: meeting
+      doors:
+      - {id: 'GF:G-28-d1', wall: x=50, lo: 31.0, hi: 32.0, kind: interior}
+    - id: G-29
+      name: Open-plan office
+      kind: room
+      rect: {x0: 67, y0: 16, x1: 83, y1: 26}
+      use: open_office
+      doors:
+      - {id: 'GF:G-29-d1', wall: y=16, lo: 70.0, hi: 71.5, kind: interior}
+      - {id: 'GF:G-29-d2', wall: y=16, lo: 78.0, hi: 79.5, kind: interior}
+      - {id: 'GF:G-29-d3', wall: x=83, lo: 20.0, hi: 21.5, kind: interior}
+      - {id: 'GF:G-29-d4', wall: x=67, lo: 19.0, hi: 20.5, kind: interior}
+    - id: G-30
+      name: Server room
+      kind: room
+      rect: {x0: 67, y0: 26, x1: 75, y1: 36}
+      use: plant_room
+      restricted: true
+      doors:
+      - {id: 'GF:G-30-d1', wall: y=36, lo: 70.075, hi: 70.925, kind: interior}
+    - id: G-31
+      name: Office
+      kind: room
+      rect: {x0: 75, y0: 26, x1: 83, y1: 36}
+      use: office
+      doors:
+      - {id: 'GF:G-31-d1', wall: x=83, lo: 30.0, hi: 31.0, kind: interior}
+    hazards:
+    - {id: H-1, species: H2S, mw: 34.08, space: G-07, x: 90.0, y: 6.0, z: 1.0, purpose: ''}
+    - {id: H-2, species: H2S, mw: 34.08, space: G-12, x: 92.0, y: 35.0, z: 1.0, purpose: ''}
+    clutter:
+    - {id: GF-obs-0, space: C-S, type: reception_desk, x: 24.0, y: 14.0, rotation_deg: 0, layer: furniture, group: corridor,
+      active_by_default: true}
+    - {id: GF-obs-1, space: C-S, type: chair, x: 22.3, y: 14.0, rotation_deg: 0, layer: furniture, group: corridor, active_by_default: true}
+    - {id: GF-obs-2, space: C-S, type: chair, x: 25.7, y: 14.0, rotation_deg: 0, layer: furniture, group: corridor, active_by_default: true}
+    - {id: GF-obs-3, space: C-S, type: bench, x: 42.0, y: 15.6, rotation_deg: 0, layer: furniture, group: corridor, active_by_default: true}
+    - {id: GF-obs-4, space: C-S, type: bench, x: 50.0, y: 15.6, rotation_deg: 0, layer: furniture, group: corridor, active_by_default: true}
+    - {id: GF-obs-5, space: C-S, type: vending_machine, x: 57.0, y: 15.6, rotation_deg: 0, layer: furniture, group: corridor,
+      active_by_default: true}
+    - {id: GF-obs-6, space: C-W, type: cabinet, x: 11.7, y: 18.0, rotation_deg: 90, layer: furniture, group: corridor, active_by_default: true}
+    - {id: GF-obs-7, space: C-X1, type: printer, x: 30.3, y: 18.0, rotation_deg: 90, layer: furniture, group: corridor, active_by_default: true}
+    - {id: GF-obs-8, space: C-X1, type: water_cooler, x: 32.3, y: 27.0, rotation_deg: 0, layer: furniture, group: corridor,
+      active_by_default: true}
+    - {id: GF-obs-9, space: C-X2, type: sofa, x: 49.6, y: 26.0, rotation_deg: 90, layer: furniture, group: corridor, active_by_default: true}
+    - {id: GF-obs-10, space: C-N, type: plant_pot, x: 10.25, y: 37.25, rotation_deg: 0, layer: furniture, group: corridor,
+      active_by_default: true}
+    - {id: GF-obs-11, space: C-N, type: plant_pot, x: 85.75, y: 37.25, rotation_deg: 0, layer: furniture, group: corridor,
+      active_by_default: true}
+    - {id: GF-obs-12, space: C-E, type: trolley, x: 85.4, y: 30.0, rotation_deg: 90, layer: clutter, group: clutter, active_by_default: false}
+    - {id: GF-obs-13, space: C-X3, type: trolley, x: 65.4, y: 24.0, rotation_deg: 90, layer: clutter, group: clutter, active_by_default: false}
+    - id: GF-obs-14
+      space: C-X3
+      type: maintenance_barrier
+      x: 66.0
+      y: 30.0
+      rotation_deg: 0
+      layer: clutter
+      group: maintenance
+      active_by_default: false
+      size: [2.0, 0.2]
+    - {id: GF-obs-15, space: G-21, type: desk, x: 16.0, y: 19.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: GF-obs-16, space: G-21, type: desk, x: 19.4, y: 19.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: GF-obs-17, space: G-21, type: desk, x: 22.8, y: 19.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: GF-obs-18, space: G-21, type: desk, x: 16.0, y: 21.4, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: GF-obs-19, space: G-21, type: desk, x: 19.4, y: 20.40, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: GF-obs-20, space: G-21, type: desk, x: 22.8, y: 21.4, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: GF-obs-21, space: G-29, type: desk, x: 71.0, y: 19.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: GF-obs-22, space: G-29, type: desk, x: 75.0, y: 19.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: GF-obs-23, space: G-29, type: desk, x: 79.0, y: 19.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: GF-obs-24, space: G-29, type: desk, x: 71.0, y: 21.4, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: GF-obs-25, space: G-29, type: desk, x: 75.0, y: 21.4, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: GF-obs-26, space: G-29, type: desk, x: 79.0, y: 21.4, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: GF-obs-27, space: G-05, type: cafe_table, x: 56.0, y: 4.0, rotation_deg: 0, layer: furniture, group: furniture,
+      active_by_default: true}
+    - {id: GF-obs-28, space: G-05, type: cafe_table, x: 60.0, y: 4.0, rotation_deg: 0, layer: furniture, group: furniture,
+      active_by_default: true}
+    - {id: GF-obs-29, space: G-05, type: cafe_table, x: 64.0, y: 4.0, rotation_deg: 0, layer: furniture, group: furniture,
+      active_by_default: true}
+    - {id: GF-obs-30, space: G-05, type: cafe_table, x: 56.0, y: 8.0, rotation_deg: 0, layer: furniture, group: furniture,
+      active_by_default: true}
+    - {id: GF-obs-31, space: G-05, type: cafe_table, x: 60.0, y: 8.0, rotation_deg: 0, layer: furniture, group: furniture,
+      active_by_default: true}
+    - {id: GF-obs-32, space: G-05, type: cafe_table, x: 64.0, y: 8.0, rotation_deg: 0, layer: furniture, group: furniture,
+      active_by_default: true}
+    - {id: GF-obs-33, space: G-13, type: console, x: 4.0, y: 46.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: GF-obs-34, space: G-13, type: console, x: 8.0, y: 46.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: GF-obs-35, space: G-13, type: console, x: 12.0, y: 46.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: GF-obs-36, space: G-13, type: console, x: 4.0, y: 49.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: GF-obs-37, space: G-13, type: console, x: 8.0, y: 49.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: GF-obs-38, space: G-13, type: console, x: 12.0, y: 49.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: GF-obs-39, space: G-16, type: lab_bench, x: 41.5, y: 44.0, rotation_deg: 0, layer: furniture, group: furniture,
+      active_by_default: true}
+    - {id: GF-obs-40, space: G-16, type: lab_bench, x: 41.5, y: 47.0, rotation_deg: 0, layer: furniture, group: furniture,
+      active_by_default: true}
+    - {id: GF-obs-41, space: G-16, type: lab_bench, x: 41.5, y: 50.0, rotation_deg: 0, layer: furniture, group: furniture,
+      active_by_default: true}
+    - {id: GF-obs-42, space: G-01, type: workbench, x: 4.0, y: 5.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: GF-obs-43, space: G-01, type: workbench, x: 8.0, y: 5.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    exits:
+    - {id: X-S, space: LOBBY, wall: y=0, lo: 44.8, hi: 47.2, default_state: AVAILABLE}
+    - {id: X-S2, space: VEST-SE, wall: y=0, lo: 69.1, hi: 70.9, default_state: AVAILABLE}
+    - {id: X-W, space: W-STUB, wall: x=0, lo: 18.65, hi: 19.85, default_state: AVAILABLE}
+    - {id: X-NW, space: ST-W, wall: x=0, lo: 27.0, hi: 28.5, default_state: AVAILABLE}
+    - {id: X-N, space: N-STUB, wall: y=54, lo: 47.6, hi: 49.4, default_state: AVAILABLE}
+    - {id: X-E, space: E-STUB, wall: x=96, lo: 26.75, hi: 28.25, default_state: AVAILABLE}
+    - {id: X-SE, space: G-07, wall: x=96, lo: 4.0, hi: 5.5, default_state: UNAVAILABLE}
+  - id: FF
+    z: 4.0
+    footprint: {x0: 0.0, y0: 0.0, x1: 96.0, y1: 54.0}
+    spaces:
+    - id: C-S
+      name: South corridor
+      kind: corridor
+      rect: {x0: 10, y0: 12, x1: 86, y1: 16}
+      use: corridor
+    - id: C-N
+      name: North corridor
+      kind: corridor
+      rect: {x0: 10, y0: 36, x1: 86, y1: 38.5}
+      use: corridor
+    - id: C-W
+      name: West corridor
+      kind: corridor
+      rect: {x0: 10, y0: 16, x1: 12, y1: 36}
+      use: corridor
+    - id: C-E
+      name: East corridor
+      kind: corridor
+      rect: {x0: 83, y0: 16, x1: 86, y1: 36}
+      use: corridor
+    - id: C-X1
+      name: Cross corridor 1
+      kind: corridor
+      rect: {x0: 30, y0: 16, x1: 32.5, y1: 36}
+      use: corridor
+    - id: C-X2
+      name: Cross corridor 2
+      kind: corridor
+      rect: {x0: 47, y0: 16, x1: 50, y1: 36}
+      use: corridor
+    - id: C-X3
+      name: Cross corridor 3
+      kind: corridor
+      rect: {x0: 65, y0: 16, x1: 67, y1: 36}
+      use: corridor
+    - id: ST-W
+      name: West fire stair
+      kind: stair
+      rect: {x0: 0, y0: 24, x1: 10, y1: 32}
+      use: stair
+    - id: ST-E
+      name: East fire stair
+      kind: stair
+      rect: {x0: 86, y0: 12, x1: 96, y1: 19}
+      use: stair
+    - id: ST-C
+      name: Main open stair
+      kind: stair
+      rect: {x0: 32.5, y0: 16, x1: 40.5, y1: 24}
+      use: stair
+      openings:
+      - {id: 'FF:ST-C-d1', wall: y=16, lo: 34.0, hi: 37.5}
+      - {id: 'FF:ST-C-d2', wall: x=32.5, lo: 18.0, hi: 21.0}
+    - id: ST-C2
+      name: Secondary open stair
+      kind: stair
+      rect: {x0: 57, y0: 28, x1: 65, y1: 36}
+      use: stair
+      openings:
+      - {id: 'FF:ST-C2-d1', wall: y=36, lo: 59.0, hi: 62.0}
+      - {id: 'FF:ST-C2-d2', wall: x=65, lo: 30.0, hi: 33.0}
+    - id: ST-N
+      name: North fire stair
+      kind: stair
+      rect: {x0: 72, y0: 38.5, x1: 80, y1: 46.5}
+      use: stair
+    - id: F-01
+      name: Office
+      kind: room
+      rect: {x0: 0, y0: 0, x1: 20, y1: 12}
+      use: office
+      doors:
+      - {id: 'FF:F-01-d1', wall: y=12, lo: 13.0, hi: 14.5, kind: interior}
+    - id: F-02
+      name: Open-plan office
+      kind: room
+      rect: {x0: 20, y0: 0, x1: 40, y1: 12}
+      use: open_office
+      doors:
+      - {id: 'FF:F-02-d1', wall: y=12, lo: 24.0, hi: 25.5, kind: interior}
+      - {id: 'FF:F-02-d2', wall: y=12, lo: 34.0, hi: 35.5, kind: interior}
+    - id: VOID
+      name: Atrium over lobby
+      kind: void
+      rect: {x0: 40, y0: 0, x1: 52, y1: 12}
+      use: void
+    - id: F-03
+      name: Office pool
+      kind: room
+      rect: {x0: 52, y0: 0, x1: 68, y1: 12}
+      use: open_office
+      doors:
+      - {id: 'FF:F-03-d1', wall: y=12, lo: 55.0, hi: 56.5, kind: interior}
+      - {id: 'FF:F-03-d2', wall: y=12, lo: 63.0, hi: 64.5, kind: interior}
+    - id: F-04
+      name: Office
+      kind: room
+      rect: {x0: 68, y0: 0, x1: 84, y1: 12}
+      use: office
+      doors:
+      - {id: 'FF:F-04-d1', wall: y=12, lo: 74.0, hi: 75.5, kind: interior}
+    - id: F-05
+      name: Office
+      kind: room
+      rect: {x0: 84, y0: 0, x1: 96, y1: 12}
+      use: office
+      doors:
+      - {id: 'FF:F-05-d1', wall: y=12, lo: 84.5, hi: 85.5, kind: interior}
+    - id: F-06
+      name: Office
+      kind: room
+      rect: {x0: 0, y0: 12, x1: 10, y1: 24}
+      use: office
+      doors:
+      - {id: 'FF:F-06-d1', wall: x=10, lo: 13.0, hi: 14.0, kind: interior}
+      - {id: 'FF:F-06-d2', wall: x=10, lo: 21.0, hi: 22.0, kind: interior}
+    - id: F-07
+      name: Office
+      kind: room
+      rect: {x0: 0, y0: 32, x1: 10, y1: 38.5}
+      use: office
+      doors:
+      - {id: 'FF:F-07-d1', wall: x=10, lo: 33.0, hi: 34.0, kind: interior}
+    - id: F-08
+      name: Office
+      kind: room
+      rect: {x0: 86, y0: 19, x1: 96, y1: 29}
+      use: office
+      doors:
+      - {id: 'FF:F-08-d1', wall: x=86, lo: 22.0, hi: 23.0, kind: interior}
+      - {id: 'FF:F-08-d2', wall: x=86, lo: 27.0, hi: 28.0, kind: interior}
+    - id: F-09
+      name: HVAC plant room
+      kind: room
+      rect: {x0: 86, y0: 29, x1: 96, y1: 38.5}
+      use: hvac_plant
+      restricted: true
+      doors:
+      - {id: 'FF:F-09-d1', wall: x=86, lo: 31.075, hi: 31.925, kind: interior}
+    - id: F-10
+      name: Conference hall
+      kind: room
+      rect: {x0: 0, y0: 38.5, x1: 26, y1: 54}
+      use: conference
+      doors:
+      - {id: 'FF:F-10-d1', wall: y=38.5, lo: 12.0, hi: 13.5, kind: interior}
+      - {id: 'FF:F-10-d2', wall: y=38.5, lo: 22.0, hi: 23.5, kind: interior}
+    - id: F-11
+      name: Office
+      kind: room
+      rect: {x0: 26, y0: 38.5, x1: 40, y1: 54}
+      use: office
+      doors:
+      - {id: 'FF:F-11-d1', wall: y=38.5, lo: 30.0, hi: 31.0, kind: interior}
+    - id: F-12
+      name: Library
+      kind: room
+      rect: {x0: 40, y0: 38.5, x1: 47, y1: 54}
+      use: library
+      doors:
+      - {id: 'FF:F-12-d1', wall: y=38.5, lo: 43.0, hi: 44.0, kind: interior}
+    - id: FN-STUB
+      name: Lounge (dead-end)
+      kind: stub
+      rect: {x0: 47, y0: 38.5, x1: 50, y1: 54}
+      use: corridor
+    - id: F-13
+      name: Open-plan office
+      kind: room
+      rect: {x0: 50, y0: 38.5, x1: 72, y1: 54}
+      use: open_office
+      doors:
+      - {id: 'FF:F-13-d1', wall: y=38.5, lo: 53.0, hi: 54.5, kind: interior}
+      - {id: 'FF:F-13-d2', wall: y=38.5, lo: 66.0, hi: 67.5, kind: interior}
+      - {id: 'FF:F-13-d3', wall: x=72, lo: 50.0, hi: 51.0, kind: interior}
+    - id: F-14
+      name: Store
+      kind: room
+      rect: {x0: 72, y0: 46.5, x1: 80, y1: 54}
+      use: store
+    - id: F-15
+      name: Office
+      kind: room
+      rect: {x0: 80, y0: 38.5, x1: 96, y1: 54}
+      use: office
+      doors:
+      - {id: 'FF:F-15-d1', wall: y=38.5, lo: 82.0, hi: 83.5, kind: interior}
+    - id: F-16
+      name: Archive
+      kind: room
+      rect: {x0: 12, y0: 16, x1: 30, y1: 36}
+      use: store
+      doors:
+      - {id: 'FF:F-16-d1', wall: y=16, lo: 20.075, hi: 20.925, kind: interior}
+      - {id: 'FF:F-16-d2', wall: y=36, lo: 24.075, hi: 24.925, kind: interior}
+    - id: F-17
+      name: WC
+      kind: room
+      rect: {x0: 40.5, y0: 16, x1: 47, y1: 24}
+      use: toilets
+      doors:
+      - {id: 'FF:F-17-d1', wall: x=47, lo: 19.075, hi: 19.925, kind: interior}
+    - id: F-18
+      name: Office
+      kind: room
+      rect: {x0: 32.5, y0: 24, x1: 47, y1: 36}
+      use: office
+      doors:
+      - {id: 'FF:F-18-d1', wall: x=32.5, lo: 29.0, hi: 30.5, kind: interior}
+      - {id: 'FF:F-18-d2', wall: x=47, lo: 29.0, hi: 30.5, kind: interior}
+    - id: F-19
+      name: Office
+      kind: room
+      rect: {x0: 50, y0: 16, x1: 65, y1: 28}
+      use: office
+      doors:
+      - {id: 'FF:F-19-d1', wall: y=16, lo: 52.0, hi: 53.0, kind: interior}
+      - {id: 'FF:F-19-d2', wall: x=65, lo: 22.0, hi: 23.0, kind: interior}
+    - id: F-20
+      name: Office
+      kind: room
+      rect: {x0: 50, y0: 28, x1: 57, y1: 36}
+      use: office
+      doors:
+      - {id: 'FF:F-20-d1', wall: x=50, lo: 31.0, hi: 32.0, kind: interior}
+    - id: F-21
+      name: Open-plan office
+      kind: room
+      rect: {x0: 67, y0: 16, x1: 83, y1: 36}
+      use: open_office
+      doors:
+      - {id: 'FF:F-21-d1', wall: y=16, lo: 70.0, hi: 71.5, kind: interior}
+      - {id: 'FF:F-21-d2', wall: x=83, lo: 20.0, hi: 21.5, kind: interior}
+      - {id: 'FF:F-21-d3', wall: y=36, lo: 78.0, hi: 79.5, kind: interior}
+      - {id: 'FF:F-21-d4', wall: x=67, lo: 30.0, hi: 31.0, kind: interior}
+    hazards:
+    - {id: H-3, species: H2S, mw: 34.08, space: F-09, x: 92.0, y: 34.0, z: 5.0, purpose: ''}
+    clutter:
+    - {id: FF-obs-0, space: C-S, type: table, x: 44.0, y: 12.4, rotation_deg: 0, layer: furniture, group: corridor, active_by_default: true}
+    - {id: FF-obs-1, space: C-S, type: table, x: 48.0, y: 12.4, rotation_deg: 0, layer: furniture, group: corridor, active_by_default: true}
+    - {id: FF-obs-2, space: C-S, type: chair, x: 43.0, y: 13.1, rotation_deg: 0, layer: furniture, group: corridor, active_by_default: true}
+    - {id: FF-obs-3, space: C-S, type: chair, x: 45.0, y: 13.1, rotation_deg: 0, layer: furniture, group: corridor, active_by_default: true}
+    - {id: FF-obs-4, space: C-S, type: chair, x: 47.0, y: 13.1, rotation_deg: 0, layer: furniture, group: corridor, active_by_default: true}
+    - {id: FF-obs-5, space: C-S, type: chair, x: 49.0, y: 13.1, rotation_deg: 0, layer: furniture, group: corridor, active_by_default: true}
+    - {id: FF-obs-6, space: C-W, type: plant_pot, x: 11.7, y: 30.0, rotation_deg: 0, layer: furniture, group: corridor, active_by_default: true}
+    - {id: FF-obs-7, space: C-E, type: cabinet, x: 84.7, y: 25.0, rotation_deg: 90, layer: furniture, group: corridor, active_by_default: true}
+    - id: FF-obs-8
+      space: C-N
+      type: maintenance_barrier
+      x: 40.0
+      y: 37.25
+      rotation_deg: 90
+      layer: clutter
+      group: maintenance
+      active_by_default: false
+      size: [2.5, 0.2]
+    - {id: FF-obs-9, space: F-10, type: seat_row, x: 8.0, y: 43.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-10, space: F-10, type: seat_row, x: 17.0, y: 43.0, rotation_deg: 0, layer: furniture, group: furniture,
+      active_by_default: true}
+    - {id: FF-obs-11, space: F-10, type: seat_row, x: 8.0, y: 44.4, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-12, space: F-10, type: seat_row, x: 17.0, y: 44.4, rotation_deg: 0, layer: furniture, group: furniture,
+      active_by_default: true}
+    - {id: FF-obs-13, space: F-10, type: seat_row, x: 8.0, y: 45.8, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-14, space: F-10, type: seat_row, x: 17.0, y: 45.8, rotation_deg: 0, layer: furniture, group: furniture,
+      active_by_default: true}
+    - {id: FF-obs-15, space: F-10, type: seat_row, x: 8.0, y: 47.2, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-16, space: F-10, type: seat_row, x: 17.0, y: 47.2, rotation_deg: 0, layer: furniture, group: furniture,
+      active_by_default: true}
+    - {id: FF-obs-17, space: F-10, type: seat_row, x: 8.0, y: 48.6, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-18, space: F-10, type: seat_row, x: 17.0, y: 48.6, rotation_deg: 0, layer: furniture, group: furniture,
+      active_by_default: true}
+    - {id: FF-obs-19, space: F-10, type: seat_row, x: 8.0, y: 50.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-20, space: F-10, type: seat_row, x: 17.0, y: 50.0, rotation_deg: 0, layer: furniture, group: furniture,
+      active_by_default: true}
+    - {id: FF-obs-21, space: F-21, type: desk, x: 71.0, y: 20.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-22, space: F-21, type: desk, x: 75.0, y: 20.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-23, space: F-21, type: desk, x: 79.0, y: 20.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-24, space: F-21, type: desk, x: 71.0, y: 23.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-25, space: F-21, type: desk, x: 75.0, y: 23.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-26, space: F-21, type: desk, x: 79.0, y: 23.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-27, space: F-21, type: desk, x: 71.0, y: 26.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-28, space: F-21, type: desk, x: 75.0, y: 26.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-29, space: F-21, type: desk, x: 79.0, y: 26.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-30, space: F-21, type: desk, x: 71.0, y: 29.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-31, space: F-21, type: desk, x: 75.0, y: 29.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-32, space: F-21, type: desk, x: 79.0, y: 29.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-33, space: F-21, type: desk, x: 71.0, y: 32.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-34, space: F-21, type: desk, x: 75.0, y: 32.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-35, space: F-21, type: desk, x: 79.0, y: 32.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-36, space: F-13, type: desk, x: 54.0, y: 43.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-37, space: F-13, type: desk, x: 57.5, y: 43.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-38, space: F-13, type: desk, x: 61.0, y: 43.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-39, space: F-13, type: desk, x: 64.5, y: 43.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-40, space: F-13, type: desk, x: 68.0, y: 43.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-41, space: F-13, type: desk, x: 54.0, y: 46.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-42, space: F-13, type: desk, x: 57.5, y: 46.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-43, space: F-13, type: desk, x: 61.0, y: 46.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-44, space: F-13, type: desk, x: 64.5, y: 46.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-45, space: F-13, type: desk, x: 68.0, y: 46.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-46, space: F-13, type: desk, x: 54.0, y: 49.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-47, space: F-13, type: desk, x: 57.5, y: 49.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-48, space: F-13, type: desk, x: 61.0, y: 49.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-49, space: F-13, type: desk, x: 64.5, y: 49.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-50, space: F-13, type: desk, x: 68.0, y: 49.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-51, space: F-02, type: desk, x: 24.0, y: 4.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-52, space: F-02, type: desk, x: 28.0, y: 4.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-53, space: F-02, type: desk, x: 32.0, y: 4.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-54, space: F-02, type: desk, x: 36.0, y: 4.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-55, space: F-02, type: desk, x: 24.0, y: 8.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-56, space: F-02, type: desk, x: 28.0, y: 8.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-57, space: F-02, type: desk, x: 32.0, y: 8.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    - {id: FF-obs-58, space: F-02, type: desk, x: 36.0, y: 8.0, rotation_deg: 0, layer: furniture, group: furniture, active_by_default: true}
+    exits: []
+scenarios:
+  baseline:
+    events: []
+  main_exit_blocked:
+    events:
+    - {id: X-S, state: UNAVAILABLE, type: SetExitState}
+  north_exit_blocked_unknown:
+    events:
+    - {id: X-N, state: BLOCKED_UNKNOWN, type: SetExitState}
+  main_stair_lost:
+    events:
+    - {id: ST-C, state: UNAVAILABLE, type: SetStairState}
+  compound:
+    events:
+    - {id: X-S, state: UNAVAILABLE, type: SetExitState}
+    - {id: X-N, state: BLOCKED_UNKNOWN, type: SetExitState}
+    - {id: ST-C, state: UNAVAILABLE, type: SetStairState}
+    - {group: maintenance, 'on': true, type: ToggleLayer}
+  slide23_A:
+    events: []
+  slide23_B:
+    events:
+    - {group: parking, 'on': true, type: ToggleLayer}
+  slide23_C:
+    events:
+    - {group: clutter, 'on': true, type: ToggleLayer}
+    - {id: X-NW, state: UNAVAILABLE, type: SetExitState}
+    - {id: X-E, state: UNAVAILABLE, type: SetExitState}
+  slide23_D:
+    events:
+    - {group: clutter, 'on': true, type: ToggleLayer}
+    - {group: parking, 'on': true, type: ToggleLayer}
+    - {id: X-NW, state: UNAVAILABLE, type: SetExitState}
+    - {id: X-E, state: UNAVAILABLE, type: SetExitState}
+  two_stairs_lost:
+    events:
+    - {id: ST-C, state: UNAVAILABLE, type: SetStairState}
+    - {id: ST-C2, state: UNAVAILABLE, type: SetStairState}
+  three_stairs_lost:
+    events:
+    - {id: ST-C, state: UNAVAILABLE, type: SetStairState}
+    - {id: ST-C2, state: UNAVAILABLE, type: SetStairState}
+    - {id: ST-N, state: UNAVAILABLE, type: SetStairState}
+  # Hazard scenario interface -- data only, no dispersion
+  # physics yet. H-4 (by the tank/pipe rack, outdoor) is this
+  # site's only declared hazard source.
+  h4_release_day:
+    events: []
+    hazard:
+      active_sources: [H-4]
+      wind_from_deg: 225.0
+      wind_speed_mps: 1.25
+      stability: SE
+      releases:
+        H-4: {start_time_s: 60.0, duration_s: 300.0}
+    split: train
+  h4_release_windy:
+    events: []
+    hazard:
+      active_sources: [H-4]
+      wind_from_deg: {min: 0.0, max: 360.0}
+      wind_speed_mps: {min: 1.0, max: 6.0}
+      stability: D
+      releases:
+        H-4: {start_time_s: 30.0, duration_s: {min: 120.0, max: 600.0}}
+    split: test

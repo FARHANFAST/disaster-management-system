@@ -1,0 +1,195 @@
+# Agent / body-size / kinematics defaults (core rule: no numeric
+# behaviour or physics constant lives in dms/ code outside a config loader
+# -- every value here has a unit and a source: a SYSTEM_SPEC citation, or
+# [U] for a project default not yet verified against an external source).
+# Loaded by dms/scenario/agent_defaults.py.
+
+# One source of truth for body size:
+# replaces the old, disagreeing R_AGENT_M / AGENT_BODY_RADIUS_M constants
+# and the fixed one-cell erosion. clearance_radius_m is the distance a
+# class's own centre must keep from any wall/obstacle/closed door;
+# pairwise separation between two agents uses the SUM of their own
+# clearance_radius_m, not a shared constant.
+body_classes:
+  standard:
+    shoulder_width_m: 0.46        # [U] adult shoulder breadth, ISO 7250-style default
+    depth_m: 0.28                  # [U]
+    mass_kg: 75.0                  # [U]
+    clearance_radius_m: 0.23       # [U] ~= shoulder_width_m / 2
+    can_use_stairs: true
+    stair_speed_factor: 1.0        # [U]
+  large:
+    shoulder_width_m: 0.55         # [U]
+    depth_m: 0.33                  # [U]
+    mass_kg: 100.0                 # [U]
+    clearance_radius_m: 0.28       # [U]
+    can_use_stairs: true
+    stair_speed_factor: 1.0        # [U]
+  mobility_aid:
+    shoulder_width_m: 0.70         # [U] walking frame / crutches envelope
+    depth_m: 0.60                  # [U]
+    mass_kg: 80.0                  # [U]
+    clearance_radius_m: 0.35       # [U]
+    can_use_stairs: true
+    stair_speed_factor: 0.5        # [U] slower on stairs than walking speed alone implies
+  wheelchair:
+    shoulder_width_m: 0.70         # [U] manual wheelchair envelope
+    depth_m: 1.20                  # [U]
+    mass_kg: 95.0                  # [U]
+    clearance_radius_m: 0.40       # [U]
+    can_use_stairs: false
+    stair_speed_factor: 0.0        # never used (can_use_stairs is false), kept explicit for clarity
+
+# Door/exit passability margin added on top of 2*clearance_radius_m.
+door_margin_m: 0.10   # [U]
+
+# Moved out of dms/geometry/corridor_width.py.
+min_lane_width_m: 1.0   # [U]
+
+# A single-door room (or a room disconnected by
+# one single-point-of-failure) is acceptable, not a redundancy defect, when
+# BOTH hold -- dms/graph/redundancy.py and dms/geometry/code_check.py share
+# this one source, replacing redundancy.py's old by-name exception list and
+# code_check.py's own previously-hardcoded MAX_SINGLE_DOOR_LOAD.
+redundancy:
+  single_door_max_occupancy: 49   # [U] typical IBC single-exit-access occupant-load threshold (Table 1006.2.1-
+  # style figures), not verified against a specific cited jurisdiction
+  common_path_max_m: 23.0          # [U] typical IBC common-path-of-travel limit (~75 ft, unsprinklered,
+  # most occupancies), not verified against a specific cited jurisdiction
+
+# SYSTEM_SPEC.md §N5 parameter registry: omega_p = 2.0, "the matching
+# capacity multiplier for a PARTIAL link is 1/omega_p" -- a jammed leaf of a
+# double door/exit halves its effective discharge width. Single source for
+# both dms/scenario/evacuation.py's exit-gate capacity and
+# dms/graph/builder.py's Link.Q_max.
+partial_capacity_omega_p: 2.0   # SYSTEM_SPEC.md N5 [U]/[X]
+
+# Default persona catalog: one
+# source of truth -- a building's own persona_mix.v0 overrides this per
+# building, and no persona speed is ever hardcoded in dms/ code. age_band/
+# gender are categorical labels, not physics constants.
+personas:
+  child_m: {age_band: child, gender: M, speed_mps: 1.0}             # SYSTEM_SPEC.md walking-speed table
+  child_f: {age_band: child, gender: F, speed_mps: 1.0}             # SYSTEM_SPEC.md walking-speed table
+  adolescent_m: {age_band: adolescent, gender: M, speed_mps: 1.3}   # SYSTEM_SPEC.md walking-speed table
+  adolescent_f: {age_band: adolescent, gender: F, speed_mps: 1.3}   # SYSTEM_SPEC.md walking-speed table
+  adult_m: {age_band: adult, gender: M, speed_mps: 1.2}             # SYSTEM_SPEC.md walking-speed table
+  adult_f: {age_band: adult, gender: F, speed_mps: 1.1}             # SYSTEM_SPEC.md walking-speed table
+  elderly_m: {age_band: elderly, gender: M, speed_mps: 0.7}         # SYSTEM_SPEC.md walking-speed table (source cell garbled, text says <=0.7)
+  elderly_f: {age_band: elderly, gender: F, speed_mps: 0.7}         # SYSTEM_SPEC.md walking-speed table
+  mobility_impaired: {age_band: disabled, gender: null, speed_mps: 0.5}  # SYSTEM_SPEC.md walking-speed table
+  operator: {age_band: adult, gender: null, speed_mps: 1.2}         # [U] adult-equivalent, reserved for restricted rooms
+
+# Perception radii -- separately named,
+# not a single shared radius.
+perception:
+  R_discover_m: 4.0     # [U] kept at the original design-review value
+  R_vis_m: 5.0           # SYSTEM_SPEC.md parameter registry: R_vis, R_aud = 5 / 2.5 m (tested 1-10)
+  R_aud_m: 2.5           # SYSTEM_SPEC.md parameter registry (as above)
+  t_discover_s: 8.0      # [U] default value, matches dms/viz/test_walker.py's T_DISCOVER
+
+pre_movement:
+  t_pre_mu: 3.8          # [U] ln(t_pre) ~ Normal(mu, sigma)
+  t_pre_sigma: 0.6       # [U]
+
+simulation:
+  t_end_s: 1500.0            # [U] a run is "stuck" if any agent isn't at an AP by this time
+  exit_token_burst: 1.0       # [U] exit gate buffer capacity, in persons
+
+# Room-interior placement clustering (dms/scenario/population.py), moved out
+# of code under the same no-hardcoding rule.
+population:
+  group_prob: 0.3            # [U] probability a new agent spawns near an existing colleague instead of a desk/scatter
+  cluster_spread_m: 1.2      # [U] max offset from an existing colleague when clustering
+  anchor_spread_m: 1.0       # [U] max offset from a workstation anchor (desk/table) when anchoring
+  anchor_bias_prob: 0.5      # [U] probability of anchoring to a workstation vs. a uniform scatter, when not clustering
+
+# Walker kinematics (now config instead
+# of dms/scenario/evacuation.py module constants).
+kinematics:
+  dt_s: 0.1
+  rec_every_steps: 5
+  n_headings: 24
+  look_indoor_m: 0.4
+  look_outdoor_m: 1.0
+  heading_jitter_sd: 0.08          # [U]
+  tie_break_eps_s: 0.001            # [U] far below any real T gradient at this resolution
+  density_radius_m: 1.0             # [U] neighbourhood radius for local-density sampling
+  rho_max_per_m2: 10.0              # [U] density slow-down saturation
+  density_slowdown_min_factor: 0.1  # [U] speed never drops below this fraction of free-flow
+  density_slowdown_max_factor: 1.0  # [U] speed never exceeds free-flow (no slowdown)
+  separation_push: 0.6              # [U]
+  still_push_damping: 0.3           # [U]
+  exit_capture_m: 0.45              # [U]
+  exit_jitter_m: 0.3                # [U]
+  stair_capture_m: 0.3               # [U] distance-based capture, analogous to exit_capture_m -- an exact
+  # cell-for-cell stair_id hit (the only check before this) can leave an agent orbiting a shallow T-basin
+  # right next to a stair's own footprint without ever landing on it (found during
+  # stress testing)
+  ap_target_frac: 0.5               # [U] AP field-target disc radius = this * AP radius
+  ap_capture_frac: 0.6              # [U] AP arrival capture disc radius = this * AP radius
+  stair_arrival_best_frac: 3         # [U] arrival lands among the lowest-T 1/N of the landing's cells
+  refuge_capture_m: 0.3              # [U] distance-based capture for a can_use_stairs=false
+  # class reaching its floor's refuge, same "near enough, don't require an exact cell hit" pattern as
+  # stair_capture_m above and for the same reason (a refuge's own T field bottoms out near-flat close in)
+
+# Refuges are generated by rule, not placed by
+# hand -- dms/geometry/refuge_gen.py.
+refuges:
+  refuge_max_dist_m: 6.0   # [U] a generated refuge must sit within this distance of its enclosed stair's own
+  # door -- "inside the stair's protected lobby or directly adjacent to the door" -- to count as paired with it
+  width_m: 1.5              # [U] generated refuge rect width (along the wall it's placed against)
+  depth_m: 1.0              # [U] generated refuge rect depth (perpendicular to the wall)
+  capacity: 2                # [U] default wheelchairs/assistive devices a generated refuge is sized for
+  min_clear_margin_m: 0.3   # [U] minimum gap a generated refuge must leave from its own stair's door queue
+  # zone / the stair's footprint -- a placement search step, not the refuge_check.py geometry check itself
+
+# Outdoor site sizing/geometry defaults.
+site:
+  ap_m2_per_person: 0.5       # [U] assembly-point area per person, sized for the FULL design population
+  # (not a per-AP share) -- spec: wind may leave any one AP as the only safe one
+  ap_min_dist_from_facade_m: 30.0   # [U] minimum AP distance from any building facade
+  ap_min_dist_from_hazard_m: 30.0   # [U] minimum AP distance from any hazard source
+  fence_thickness_m: 0.3       # [U] rasterized blocking thickness of a fence line
+  walkway_speed_factor: 1.3    # [U] outdoor FMM speed multiplier on a walkway cell vs open ground --
+  # >1 makes a walkway cheaper to traverse (preferred), matching real pedestrian route choice
+  gate_capture_m: 1.0          # [U] distance-based capture radius for "at this gate", same
+  # near-enough pattern as the indoor stair/refuge captures (kinematics: stair_capture_m etc.)
+
+# Fallbacks for a scenario's `hazard:` block
+# (dms/scenario/hazard_scenario.py) when an active source leaves a field
+# unspecified -- data only, no dispersion physics consumes these yet
+# (that work is still pending). Any of these may instead be given per-scenario as a
+# fixed value, or as a {min, max} range resolved by the run's own seed.
+hazard_scenario:
+  Q_gps: 16667.0        # SYSTEM_SPEC.md section 3's "Release (validation case)" row (1 t/min) [S]
+  H_m: 1.0               # SYSTEM_SPEC.md section 3's "Release (validation case)" row [S]
+  wind_from_deg: 0.0     # [U] no default direction is more plausible than another
+  wind_speed_mps: 1.25   # SYSTEM_SPEC.md section 3's "Release (validation case)" row [S]
+  stability: "SE"        # SYSTEM_SPEC.md section 3's "Release (validation case)" row (Pasquill class) [S]
+  start_time_s: 0.0      # [U] release begins at scenario start unless overridden
+  duration_s: 600.0      # [U] a generous 10-minute default release window
+
+# Signs are generated by rule from the
+# building's own geometry + routing, not placed by hand --
+# dms/geometry/signage_gen.py. A YAML `signs:` list still adds to or
+# overrides the generated set per floor (matched by id).
+signage:
+  turn_cos_threshold: 0.7   # [U] a degree-2 circulation node counts as a "turn" (gets its own sign) when its
+  # two neighbour-edge directions' cosine similarity drops below this (~45 degrees); not a turn above it
+  trace_step_m: 0.3          # [U] step size for tracing a sign's gradient-descent route to its final exit
+  # (reporting/validation only, not used by the walker itself, which already follows its own T field directly)
+  trace_max_steps: 4000      # [U] safety cap on the trace above
+  # Straight-corridor spacing fill -- no point in a
+  # corridor should be farther than sign_max_spacing_m (graph distance)
+  # from a visible sign; a candidate within sign_min_spacing_m (straight-
+  # line) of an existing sign is skipped as visually redundant rather than
+  # placed again.
+  sign_max_spacing_m: 30.0   # IFC 1013 / NFPA 101 7.10 practice [U]
+  sign_min_spacing_m: 5.0    # [U]
+  # A sign's own display/compliance attributes, applied by
+  # dms/geometry/signage_gen.py to every generated sign (a YAML-declared
+  # sign may still set its own per-sign values).
+  viewing_angle_deg: 120.0   # [U] half-cone either side of facing_deg a viewer must stand within to read the sign
+  mount_height_m: 2.1        # [U] above floor level, typical exit-sign mounting height
+  illuminated: true          # [U] internally lit by default, matching common exit-sign code practice
