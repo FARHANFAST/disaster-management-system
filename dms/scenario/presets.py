@@ -54,8 +54,8 @@ def active_groups_from_events(preset: dict) -> dict[str, bool]:
 
 
 def blocked_stairs_from_events(preset: dict, building) -> frozenset[str]:
-    """Stair ids a scenario's SetStairState events take UNAVAILABLE (PROMPT
-    02 §2) -- for a grid overlay's `blocked_stairs` (footprint blocking).
+    """Stair ids a scenario's SetStairState events take UNAVAILABLE --
+    for a grid overlay's `blocked_stairs` (footprint blocking).
     Deliberately narrower than dms/fields/eikonal.py's
     `stairs_blocked_by_scenario`, which also treats the legacy SetLinkState
     the same way, but only for the floor-coupling-exclusion purpose:
@@ -103,12 +103,12 @@ def signage_overrides_from_scenario(preset: dict, building: Building, *, seed: i
 
 
 def overlays_from_scenario(preset: dict, building: Building) -> tuple[DynamicOverlay, DynamicOverlay]:
-    """(belief_overlay, truth_overlay) for one scenario preset -- PROMPT
-    01b §5's knowledge split: truth explicitly marks every BLOCKED_UNKNOWN
-    exit as UNAVAILABLE (informed: known-blocked); belief drops those
-    entries entirely, falling back to the door's own declared
+    """(belief_overlay, truth_overlay) for one scenario preset -- this
+    module's belief/truth knowledge split: truth explicitly marks every
+    BLOCKED_UNKNOWN exit as UNAVAILABLE (informed: known-blocked); belief
+    drops those entries entirely, falling back to the door's own declared
     default_state, matching the established ghost-walker convention
-    (dms/viz/test_walker.py's own belief_overlay construction). Both share
+    (dms/viz/walker_trace.py's own belief_overlay construction). Both share
     the same door_states/active_groups/blocked_stairs for every other kind
     of event (SetDoorState/SetExitState/ToggleLayer/SetStairState) -- there
     is no knowledge split for those, only for BLOCKED_UNKNOWN exits."""

@@ -1,6 +1,6 @@
 """configs/viz.yaml loader (spec §1.1) — colors, markers, hatching and
 obstacle-type initials for every viz script, so none of it is hard-coded in
-plot.py/plot_fields.py/etc. Follows dms/geometry/loader.py's own convention:
+plot.py/plot_routes.py/etc. Follows dms/geometry/loader.py's own convention:
 plain yaml.safe_load, manual dict access with explicit casts, a dedicated
 exception type — no schema-validation dependency.
 """

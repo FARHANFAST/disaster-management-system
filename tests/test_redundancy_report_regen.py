@@ -1,4 +1,4 @@
-"""The committed out/redundancy.md
+"""The committed out/reports/redundancy.md
 reports must never silently drift from what the code actually produces --
 a fresh regeneration must match the committed file byte-for-byte. Generic
 over any (config, out_dir, building_id) triple the repo commits a report
@@ -26,8 +26,8 @@ from dms.graph.redundancy import (
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 COMMITTED_REPORTS = [
-    ("configs/buildings/two_storey_large.yaml", "B1", "out/redundancy.md"),
-    ("configs/buildings/three_storey_large.yaml", None, "out/three_storey/redundancy.md"),
+    ("configs/buildings/two_storey_large.yaml", "B1", "out/reports/redundancy.md"),
+    ("configs/buildings/three_storey_large.yaml", None, "out/reports/three_storey/redundancy.md"),
 ]
 
 

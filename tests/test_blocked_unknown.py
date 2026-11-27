@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dms.fields.eikonal import FieldCache
 from dms.grid.layers import DynamicOverlay
-from dms.viz.test_walker import R_VIS, T_DISCOVER, trace_gf_walker_with_discovery
+from dms.viz.walker_trace import R_VIS, T_DISCOVER, trace_gf_walker_with_discovery
 
 
 def test_blocked_unknown_is_a_legal_door_state():

@@ -9,7 +9,7 @@ sampling T at N candidate headings ahead and picking the lowest, plus
 density slow-down and pairwise disc separation -- explicitly *not* the SFM of
 SYSTEM_SPEC.md (no such model exists yet; this is a visual/behavioral check
 of the geometry, fields and capacity constraints, same scope as the existing
-ghost walker and demo_simulation.py).
+ghost walker in dms/viz/walker_trace.py).
 
 Builds entirely on already-generic dms/ primitives (FieldCache,
 clearance_domain, overlays_from_scenario, sample_population,

@@ -1,10 +1,9 @@
 """spec §1: a "trivial ghost walker" that follows -grad(T) for a purely
-visual sanity check of the Eikonal fields built in Milestone 4 — not a
-pytest test despite the filename (that's the name the verification was
-asked for); see pyproject.toml's `testpaths = ["tests"]`, which keeps
-pytest from trying to collect it. Run as:
+visual sanity check of the Eikonal fields. Despite living in dms/viz/, it
+is also imported by tests/test_blocked_unknown.py for its walker-stepping
+helpers, not just run standalone. Run as:
 
-    python -m dms.viz.test_walker
+    python -m dms.viz.walker_trace
 
 Writes out/walker_gf_traces.png, out/walker_ff_traces.png, and — from the
 edge-case stress sweep — out/walker_edge_cases_gf.png and
