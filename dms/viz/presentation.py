@@ -216,15 +216,14 @@ def render_presentation_frame(
               fontsize=fontsize_clock, fontweight="bold", ha="right", va="center", family="monospace")
 
     # Agents, at the nearest recorded frame to t, on the bottom/top/site
-    # panels -- true body size ("true body size with a
-    # thin dark outline so they show up on light corridors"), drawn as a
-    # Circle patch with radius = the agent's own clearance_radius_m in
-    # DATA units (metres), which is correct-to-scale regardless of each
-    # panel's own zoom -- a scatter marker's `s` is in display points^2
-    # and can't represent a metre size consistently across panels with
-    # different px/m scales. Clamped to each panel's own min_agent_px
-    # floor so an agent never shrinks below visibility on a zoomed-out
-    # panel (the site map, mainly).
+    # panels -- true body size, drawn as a Circle patch with radius =
+    # shoulder_width_m / 2 (the agent's actual body, not the routing
+    # clearance_radius_m it's eroded by) in DATA units (metres), which is
+    # correct-to-scale regardless of each panel's own zoom -- a scatter
+    # marker's `s` is in display points^2 and can't represent a metre size
+    # consistently across panels with different px/m scales. Clamped to
+    # each panel's own min_agent_px floor so an agent never shrinks below
+    # visibility on a zoomed-out panel (the site map, mainly).
     from .evacuation_video import _agent_color
 
     site_idx = len(world.floor_order)
@@ -237,7 +236,10 @@ def render_presentation_frame(
     }
     frame_times = np.array([fr.t for fr in res.frames])
     fr = res.frames[int(np.argmin(np.abs(frame_times - t)))]
-    radii = np.array([a.clearance_radius_m for a in agents], dtype=np.float64)
+    radii = np.array(
+        [world.agent_defaults.body_classes[a.body_class].shoulder_width_m / 2.0 for a in agents],
+        dtype=np.float64,
+    )
     for fidx, ax in panel_of.items():
         m = (fr.floor == fidx) & np.isin(fr.state, (PRE, MOVE, QUEUE, DISC, IN_REFUGE))
         P = fr.pos[m]
