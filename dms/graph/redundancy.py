@@ -4,7 +4,8 @@ Every door, opening, stair and exit is taken UNAVAILABLE one at a time (a
 "single failure"); the only rooms allowed to become unreachable are the
 declared `designed_dead_ends` (spec: rooms whose *only* door is the failed
 element). A handful of named double failures and an exit-pair sweep follow,
-plus an edge-disjoint-paths check on the FF ring. Writes out/redundancy.md.
+plus an edge-disjoint-paths check on the FF ring. Writes redundancy.md into
+--out-dir (default out/reports/).
 
 This module never mutates the live NavGraph — every trial operates on a
 `G.copy()` with nodes/edges removed, and `route()` runs against a thin
@@ -536,7 +537,7 @@ def write_redundancy_report(
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=None, help="building YAML (default: configs/buildings/two_storey.yaml)")
-    parser.add_argument("--out-dir", type=Path, default=None, help="output directory (default: out/)")
+    parser.add_argument("--out-dir", type=Path, default=None, help="output directory (default: out/reports/)")
     parser.add_argument(
         "--with-images", action="store_true",
         help="also render the named double-failure scenarios' comparison PNGs (dms.viz.plot_routes)",
@@ -573,7 +574,7 @@ def main() -> None:
 
     args = _parse_args()
     config = args.config or Path(__file__).resolve().parents[2] / "configs" / "buildings" / "two_storey.yaml"
-    out_dir = args.out_dir or Path(__file__).resolve().parents[2] / "out"
+    out_dir = args.out_dir or Path(__file__).resolve().parents[2] / "out" / "reports"
 
     site = load_site(config)
     building = site.get_building(site.building_ids()[0])

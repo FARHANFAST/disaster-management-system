@@ -51,3 +51,5 @@ changed.
 - Keep simulation code free of rendering imports (`dms/scenario/`, `dms/graph/`,
   `dms/fields/`, `dms/geometry/` should never import `matplotlib`), so the
   simulation stays fast and headless.
+- Videos in `out/videos/` are only re-committed at milestones, not on every
+  render, to keep the repo small.

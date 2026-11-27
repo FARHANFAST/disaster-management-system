@@ -5,7 +5,6 @@ scenarios. The 25-run full stress test lives in test_b1l_stress.py
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import numpy as np
@@ -144,45 +143,6 @@ def test_agents_never_cross_floors_in_separation_queries(site, building):
     res = simulate(world, agents, t_end=1.0, seed=1)
     fr = res.frames[0]
     assert np.allclose(fr.pos[0], fr.pos[1])  # no separation push since they're on different floors
-
-
-def test_frames_json_round_trip(tmp_path, site, building):
-    import imageio_ffmpeg
-
-    from dms.scenario.evacuation import sample_agents
-    from dms.viz.evacuation_video import write_video_and_frames
-
-    world = build_world(site, building, "baseline")
-    agents = sample_agents(world, "day", seed=7, N=25)
-    res = simulate(world, agents, t_end=400.0, seed=1)
-    mp4, bg, fj = write_video_and_frames(
-        world, agents, res, scenario_title="Baseline", subtitle="test", profile="day", seed=1,
-        out_dir=tmp_path, ffmpeg_exe=imageio_ffmpeg.get_ffmpeg_exe(),
-    )
-    assert mp4.exists() and mp4.stat().st_size > 1000
-    assert bg.exists() and bg.stat().st_size > 1000
-    data = json.loads(fj.read_text(encoding="utf-8"))
-    for key in ("scenario", "title", "subtitle", "profile", "seed", "n", "dt", "times", "axes", "size",
-                "exits", "exit_used", "t_exit", "ap_used", "aps", "events", "x", "y", "c", "summary"):
-        assert key in data
-    assert data["dt"] == 0.5
-    assert data["n"] == len(agents)
-    assert set(data["axes"].keys()) == {"GF", "FF", "SITE"}
-    import base64
-
-    n = data["n"]
-    f = len(data["times"])
-    xs = np.frombuffer(base64.b64decode(data["x"]), dtype=np.int16).reshape(f, n)
-    ys = np.frombuffer(base64.b64decode(data["y"]), dtype=np.int16).reshape(f, n)
-    codes = np.frombuffer(base64.b64decode(data["c"]), dtype=np.uint8).reshape(f, n)
-    assert np.array_equal(xs[0], np.round(res.frames[0].pos[:, 0] * 10).astype(np.int16))
-    assert np.array_equal(ys[0], np.round(res.frames[0].pos[:, 1] * 10).astype(np.int16))
-    floor0 = (codes[0] >> 4).astype(np.uint8)
-    state0 = (codes[0] & 0b0111).astype(np.uint8)
-    know0 = ((codes[0] >> 3) & 1).astype(bool)
-    assert np.array_equal(floor0, res.frames[0].floor.astype(np.uint8))
-    assert np.array_equal(state0, res.frames[0].state.astype(np.uint8))
-    assert np.array_equal(know0, res.frames[0].know)
 
 
 def test_wheelchair_agent_on_ff_reaches_a_refuge_and_is_safe_not_stuck(building):

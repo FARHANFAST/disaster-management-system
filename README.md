@@ -95,8 +95,14 @@ Render an evacuation demo (video + a `frames.json` export for the web
 player):
 
 ```
-python -m dms.viz.render_b1l_demo --scenario baseline --out-dir out
+python -m dms.viz.render_b1l_demo baseline compound
 ```
+
+Writes MP4s to `out/videos/` and the matching `frames.json` + background
+PNG to `out/frames/`. Pre-rendered baseline and compound-failure previews
+are already committed there, along with the three compound frame grabs
+(`out/frames/compound_frame_*.png`) showing the pre-discovery, discovery
+and post-reroute moments.
 
 See `docs/build_env.md` for the exact shape of the build artifacts.
 
@@ -113,7 +119,11 @@ dms/
   viz/               Rendering: floor plans, site map, status panel, video export
   tools/             CLI entry points (build_env, converters)
 tests/               Unit and integration tests, by module
-out/                 Generated reports (committed) and renders (not committed)
+out/
+  videos/            Rendered evacuation demo MP4s
+  frames/            frames.json exports + background PNGs for the web player
+  reports/           Committed validation/redundancy/body-class reports
+  images/            Current per-building layout stills and the site map
 docs/                Reference docs (build artifact format, SYSTEM_SPEC.md)
 ```
 

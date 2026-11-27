@@ -1,5 +1,6 @@
 """spec §4 deliverable: renders the baseline and compound-failure B1-L
-evacuation runs to MP4 + frames.json + background PNG in out/.
+evacuation runs to MP4 (out/videos/) plus frames.json and background PNG
+for the web player (out/frames/).
 
 Run as:
 
@@ -16,10 +17,12 @@ from pathlib import Path
 
 from ..geometry.loader import load_site
 from ..scenario.evacuation import build_world, sample_agents, simulate, summarize
-from .evacuation_video import write_video_and_frames
+from .presentation import write_presentation_video_and_frames
 
 CONFIG_PATH = Path(__file__).resolve().parents[2] / "configs" / "buildings" / "two_storey_large.yaml"
-OUT_DIR = Path(__file__).resolve().parents[2] / "out"
+OUT_ROOT = Path(__file__).resolve().parents[2] / "out"
+VIDEOS_DIR = OUT_ROOT / "videos"
+FRAMES_DIR = OUT_ROOT / "frames"
 
 SCENARIO_TEXT = {
     "baseline": ("Baseline", "All 7 exits and 5 stairs open; X-SE service door locked (normal)."),
@@ -53,11 +56,14 @@ def run(scenario: str) -> None:
     )
     if other_stuck:
         raise SystemExit(f"{scenario}: {other_stuck} agent(s) genuinely stuck -- refusing to render")
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    mp4, bg, fj = write_video_and_frames(
+    VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
+    FRAMES_DIR.mkdir(parents=True, exist_ok=True)
+    mp4, bg, fj = write_presentation_video_and_frames(
         world, agents, res, scenario_title=title, subtitle=subtitle, profile=PROFILE, seed=1,
-        out_dir=OUT_DIR, ffmpeg_exe=_ffmpeg_exe(),
+        out_dir=VIDEOS_DIR, resolution="preview", ffmpeg_exe=_ffmpeg_exe(),
     )
+    bg = bg.replace(FRAMES_DIR / bg.name)
+    fj = fj.replace(FRAMES_DIR / fj.name)
     print(f"  wrote {mp4}")
     print(f"  wrote {bg}")
     print(f"  wrote {fj}")

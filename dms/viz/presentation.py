@@ -1,11 +1,13 @@
 """The presentation layout -- title bar, ground-floor
 and top-floor plans side by side at the same scale, and a bottom band
-(outdoor site map / live status panel / legend). Renders a single static
-frame of a `simulate()` run at a given sim time, at a chosen resolution
+(outdoor site map / live status panel / legend), at a chosen resolution
 (1920x1080 "preview" or 3840x2160 "pitch" -- configs/viz.yaml
-presentation.resolutions). Video/frames.json/player updates are a later
-step (spec §3-4, after the static-frame approval this module
-exists to produce); this module only ever writes one PNG per call.
+presentation.resolutions). `save_presentation_png` renders a single static
+frame of a `simulate()` run at a given sim time; `write_presentation_video_and_frames`
+renders the same layout as a full MP4 (title card, pause-and-banner on first
+discovery, end hold) plus a schema-v3 `frames.json` export. Both share the
+same panel-building code (`_build_presentation_panels`) so the video can
+never silently drift from the already-approved static layout.
 
 Generic over any building/scenario: every id/exit/AP/hazard drawn here
 comes from whatever the loaded Site/Building/EvacuationWorld declare.
@@ -13,6 +15,7 @@ comes from whatever the loaded Site/Building/EvacuationWorld declare.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 
 import matplotlib
@@ -140,13 +143,61 @@ def _floor_extent(grid) -> tuple[float, float, float, float]:
     return (x0, x0 + cols * h, y0, y0 + rows * h)
 
 
-def render_presentation_frame(
-    world: EvacuationWorld, agents: list[Agent], res: SimResult, *, t: float,
-    scenario_title: str, subtitle: str, profile: str, seed: int, hazard_seed: int | None = None,
-    resolution: str = "preview",
-):
-    """Builds the figure (does not save it -- see `save_presentation_png`
-    for that, which also controls the output resolution via dpi)."""
+def _legend_handles():
+    """The legend's handle list -- identical for the static frame and the
+    video, factored out once so the two renderers can't silently drift
+    apart."""
+    ebc = _VIZ.presentation.exit_bar_colors
+    return [
+        Line2D([], [], marker="o", ls="", mfc=_VIZ.agent_state_colors["PRE"], mec=_VIZ.agent_pre_edge_color,
+               ms=7, label=_STATE_LABELS[PRE]),
+        Line2D([], [], marker="o", ls="", mfc=_VIZ.agent_state_colors["MOVE"], mec="none", ms=7, label=_STATE_LABELS[MOVE]),
+        Line2D([], [], marker="o", ls="", mfc=_VIZ.agent_state_colors["QUEUE"], mec="none", ms=7, label=_STATE_LABELS[QUEUE]),
+        Line2D([], [], marker="o", ls="", mfc=_VIZ.agent_state_colors["IN_REFUGE"], mec="none", ms=7, label=_STATE_LABELS[IN_REFUGE]),
+        Patch(facecolor=ebc["AVAILABLE"], edgecolor="#333", label="Exit: available"),
+        Patch(facecolor=ebc["LOCKED"], edgecolor="#333", hatch="////", label="Exit: locked"),
+        Patch(facecolor=ebc["BLOCKED_KNOWN"], edgecolor="#333", label="Exit: blocked, known"),
+        Patch(facecolor=ebc["BLOCKED_UNDISCOVERED"], edgecolor="#333", hatch="////", label="Exit: blocked, undiscovered"),
+        Patch(facecolor=_VIZ.sign_arrow, edgecolor="none", label='Sign: "EXIT"'),
+        Patch(facecolor=_VIZ.sign_stair_box, edgecolor="none", label="Sign: stair (down)"),
+        Line2D([0], [0], color=_VIZ.sign_arrow, lw=2.2, marker="s", markersize=5, label="Sign: directional arrow"),
+        Line2D([0], [0], marker="*", color="none", markerfacecolor=_VIZ.hazard_color, markeredgecolor="black",
+               markersize=12, label="Hazard source (active)"),
+        Line2D([0], [0], marker="*", color="none", markerfacecolor=_VIZ.hazard_color, markeredgecolor="black",
+               markersize=12, alpha=_VIZ.presentation.hazard_inactive_alpha, label="Hazard source (inactive)"),
+    ]
+
+
+@dataclass(slots=True)
+class _PresentationPanels:
+    """Everything built once per run -- the figure, its five axes, and the
+    per-panel geometry needed to place true-body-size agents on any of
+    them. Shared by the static-frame renderer and the video renderer so
+    the two can never silently diverge in layout."""
+
+    fig: object
+    ax_bottom: object
+    ax_top: object
+    ax_site: object
+    ax_status: object
+    ax_legend: object
+    panel_of: dict
+    min_r: dict  # fidx -> this panel's min_agent_px floor, in data-unit (metre) radius
+    radii: np.ndarray  # per-agent shoulder_width_m / 2, constant across frames
+    fontsize_title: float
+    fontsize_sub: float
+    fontsize_clock: float
+
+
+def _build_presentation_panels(
+    world: EvacuationWorld, agents: list[Agent], *, scenario_title: str, profile: str, seed: int,
+    hazard_seed: int | None = None, resolution: str = "preview",
+) -> _PresentationPanels:
+    """Builds the figure, the five axes (bottom floor, top floor, site,
+    status, legend) and draws every static layer (floor plans, site map,
+    scale bars, title-bar labels, legend) -- everything that does not
+    depend on simulation time. Returns the panel handles a caller then
+    populates with a clock, a live status text, and per-frame agents."""
     site, building = world.site, world.building
     preset = site.scenarios[world.scenario] if world.scenario != "baseline" else {"events": []}
     overlay = DynamicOverlay(
@@ -201,32 +252,24 @@ def render_presentation_frame(
     scale_bar(ax_bottom, _VIZ.presentation.scale_bar_m)
     scale_bar(ax_top, _VIZ.presentation.scale_bar_m)
 
-    # Title bar.
+    # Title bar (the static parts only -- clock is left to the caller).
     fontsize_title = px_to_pt(_VIZ.presentation.title_fontsize_px, _VIZ.presentation.preview_dpi)
     fontsize_sub = px_to_pt(_VIZ.presentation.subtitle_fontsize_px, _VIZ.presentation.preview_dpi)
     fontsize_clock = px_to_pt(_VIZ.presentation.clock_fontsize_px, _VIZ.presentation.preview_dpi)
     fig.text(0.03, _TITLE_Y0 + 0.045, f"{building.id} evacuation  |  {scenario_title}",
               fontsize=fontsize_title, fontweight="bold", va="center")
-    fig.text(0.03, _TITLE_Y0 + 0.012, subtitle, fontsize=fontsize_sub, color="#444", va="center")
     fig.text(0.99, _TITLE_Y0 + 0.045, f"profile = {profile}   N = {len(agents)}   seed = {seed}",
               fontsize=fontsize_sub, ha="right", va="center", color="#444")
-    snap = build_status_snapshot(world, agents, res, t)
-    mm, ss = divmod(int(snap.t), 60)
-    fig.text(0.99, _TITLE_Y0 + 0.012, f"t = {mm:02d}:{ss:02d}  ({snap.t:5.1f} s)",
-              fontsize=fontsize_clock, fontweight="bold", ha="right", va="center", family="monospace")
 
-    # Agents, at the nearest recorded frame to t, on the bottom/top/site
-    # panels -- true body size ("true body size with a
-    # thin dark outline so they show up on light corridors"), drawn as a
-    # Circle patch with radius = the agent's own clearance_radius_m in
-    # DATA units (metres), which is correct-to-scale regardless of each
-    # panel's own zoom -- a scatter marker's `s` is in display points^2
-    # and can't represent a metre size consistently across panels with
-    # different px/m scales. Clamped to each panel's own min_agent_px
-    # floor so an agent never shrinks below visibility on a zoomed-out
-    # panel (the site map, mainly).
-    from .evacuation_video import _agent_color
+    # Legend (bottom, right) -- static, same handles for every caller.
+    ax_legend.axis("off")
+    ax_legend.legend(handles=_legend_handles(), loc="upper left",
+                      fontsize=px_to_pt(_VIZ.presentation.subtitle_fontsize_px - 1, _VIZ.presentation.preview_dpi),
+                      frameon=False, title="Legend", title_fontsize=px_to_pt(_VIZ.presentation.subtitle_fontsize_px, _VIZ.presentation.preview_dpi))
 
+    # Per-panel agent geometry: true body size (shoulder_width_m / 2),
+    # clamped to each panel's own min_agent_px floor -- same convention a
+    # scatter marker can't express across panels at different px/m scales.
     site_idx = len(world.floor_order)
     panel_of = {0: ax_bottom, site_idx - 1: ax_top, site_idx: ax_site}
     panel_rect = {0: rect_bottom, site_idx - 1: rect_top, site_idx: _SITE_AX_RECT}
@@ -235,54 +278,81 @@ def render_presentation_frame(
         0: extent_bottom[1] - extent_bottom[0], site_idx - 1: extent_top[1] - extent_top[0],
         site_idx: _site_cols * world.site_grid.transform.h,
     }
-    frame_times = np.array([fr.t for fr in res.frames])
-    fr = res.frames[int(np.argmin(np.abs(frame_times - t)))]
-    radii = np.array([a.clearance_radius_m for a in agents], dtype=np.float64)
-    for fidx, ax in panel_of.items():
+    radii = np.array(
+        [world.agent_defaults.body_classes[a.body_class].shoulder_width_m / 2.0 for a in agents],
+        dtype=np.float64,
+    )
+    min_r = {
+        fidx: _min_agent_radius_m(panel_rect[fidx][2], panel_extent_w[fidx], _VIZ.presentation.min_agent_px, _VIZ.presentation.preview_dpi)
+        for fidx in panel_of
+    }
+
+    return _PresentationPanels(
+        fig=fig, ax_bottom=ax_bottom, ax_top=ax_top, ax_site=ax_site, ax_status=ax_status, ax_legend=ax_legend,
+        panel_of=panel_of, min_r=min_r, radii=radii,
+        fontsize_title=fontsize_title, fontsize_sub=fontsize_sub, fontsize_clock=fontsize_clock,
+    )
+
+
+def _draw_agents_at_frame(panels: _PresentationPanels, fr, *, remove_previous: dict | None = None) -> dict:
+    """Draws (or redraws) true-body-size Circle patches for recorded frame
+    `fr` on every agent-bearing panel. If `remove_previous` (a fidx ->
+    list-of-patches map from an earlier call) is given, those patches are
+    removed first -- this is how the video renderer animates without
+    leaking patches frame over frame. Returns the new fidx -> patches map."""
+    from .evacuation_video import _agent_color
+
+    if remove_previous is not None:
+        for fidx, patches in remove_previous.items():
+            for p in patches:
+                p.remove()
+
+    new_patches: dict = {fidx: [] for fidx in panels.panel_of}
+    for fidx, ax in panels.panel_of.items():
         m = (fr.floor == fidx) & np.isin(fr.state, (PRE, MOVE, QUEUE, DISC, IN_REFUGE))
         P = fr.pos[m]
         if not len(P):
             continue
         cols = [_agent_color(s, k) for s, k in zip(fr.state[m], fr.know[m])]
-        min_r = _min_agent_radius_m(
-            panel_rect[fidx][2], panel_extent_w[fidx], _VIZ.presentation.min_agent_px, _VIZ.presentation.preview_dpi,
-        )
-        rs = np.maximum(radii[m], min_r)
+        rs = np.maximum(panels.radii[m], panels.min_r[fidx])
         for (px, py), r, c in zip(P, rs, cols):
-            ax.add_patch(Circle((px, py), r, facecolor=c, edgecolor=_VIZ.agent_outline,
-                                  linewidth=0.5, zorder=_AGENT_Z))
+            patch = ax.add_patch(Circle((px, py), r, facecolor=c, edgecolor=_VIZ.agent_outline,
+                                          linewidth=0.5, zorder=_AGENT_Z))
+            new_patches[fidx].append(patch)
+    return new_patches
+
+
+def render_presentation_frame(
+    world: EvacuationWorld, agents: list[Agent], res: SimResult, *, t: float,
+    scenario_title: str, subtitle: str, profile: str, seed: int, hazard_seed: int | None = None,
+    resolution: str = "preview",
+):
+    """Builds the figure (does not save it -- see `save_presentation_png`
+    for that, which also controls the output resolution via dpi)."""
+    panels = _build_presentation_panels(
+        world, agents, scenario_title=scenario_title, profile=profile, seed=seed,
+        hazard_seed=hazard_seed, resolution=resolution,
+    )
+    fig = panels.fig
+
+    fig.text(0.03, _TITLE_Y0 + 0.012, subtitle, fontsize=panels.fontsize_sub, color="#444", va="center")
+    snap = build_status_snapshot(world, agents, res, t)
+    mm, ss = divmod(int(snap.t), 60)
+    fig.text(0.99, _TITLE_Y0 + 0.012, f"t = {mm:02d}:{ss:02d}  ({snap.t:5.1f} s)",
+              fontsize=panels.fontsize_clock, fontweight="bold", ha="right", va="center", family="monospace")
+
+    # Agents, at the nearest recorded frame to t.
+    frame_times = np.array([fr.t for fr in res.frames])
+    fr = res.frames[int(np.argmin(np.abs(frame_times - t)))]
+    _draw_agents_at_frame(panels, fr)
 
     # Status panel (bottom, middle).
-    ax_status.axis("off")
-    ax_status.set_title("Status", fontsize=px_to_pt(_VIZ.presentation.subtitle_fontsize_px + 2, _VIZ.presentation.preview_dpi),
+    panels.ax_status.axis("off")
+    panels.ax_status.set_title("Status", fontsize=px_to_pt(_VIZ.presentation.subtitle_fontsize_px + 2, _VIZ.presentation.preview_dpi),
                          fontweight="bold", loc="left")
-    ax_status.text(0.0, 0.95, "\n".join(status_lines(snap)), transform=ax_status.transAxes,
+    panels.ax_status.text(0.0, 0.95, "\n".join(status_lines(snap)), transform=panels.ax_status.transAxes,
                     fontsize=px_to_pt(_VIZ.presentation.subtitle_fontsize_px - 1, _VIZ.presentation.preview_dpi),
                     va="top", family="monospace", linespacing=1.4)
-
-    # Legend (bottom, right).
-    ax_legend.axis("off")
-    ebc = _VIZ.presentation.exit_bar_colors
-    handles = [
-        Line2D([], [], marker="o", ls="", mfc=_VIZ.agent_state_colors["PRE"], mec=_VIZ.agent_pre_edge_color,
-               ms=7, label=_STATE_LABELS[PRE]),
-        Line2D([], [], marker="o", ls="", mfc=_VIZ.agent_state_colors["MOVE"], mec="none", ms=7, label=_STATE_LABELS[MOVE]),
-        Line2D([], [], marker="o", ls="", mfc=_VIZ.agent_state_colors["QUEUE"], mec="none", ms=7, label=_STATE_LABELS[QUEUE]),
-        Line2D([], [], marker="o", ls="", mfc=_VIZ.agent_state_colors["IN_REFUGE"], mec="none", ms=7, label=_STATE_LABELS[IN_REFUGE]),
-        Patch(facecolor=ebc["AVAILABLE"], edgecolor="#333", label="Exit: available"),
-        Patch(facecolor=ebc["LOCKED"], edgecolor="#333", hatch="////", label="Exit: locked"),
-        Patch(facecolor=ebc["BLOCKED_KNOWN"], edgecolor="#333", label="Exit: blocked, known"),
-        Patch(facecolor=ebc["BLOCKED_UNDISCOVERED"], edgecolor="#333", hatch="////", label="Exit: blocked, undiscovered"),
-        Patch(facecolor=_VIZ.sign_arrow, edgecolor="none", label='Sign: "EXIT"'),
-        Patch(facecolor=_VIZ.sign_stair_box, edgecolor="none", label="Sign: stair (down)"),
-        Line2D([0], [0], color=_VIZ.sign_arrow, lw=2.2, marker="s", markersize=5, label="Sign: directional arrow"),
-        Line2D([0], [0], marker="*", color="none", markerfacecolor=_VIZ.hazard_color, markeredgecolor="black",
-               markersize=12, label="Hazard source (active)"),
-        Line2D([0], [0], marker="*", color="none", markerfacecolor=_VIZ.hazard_color, markeredgecolor="black",
-               markersize=12, alpha=_VIZ.presentation.hazard_inactive_alpha, label="Hazard source (inactive)"),
-    ]
-    ax_legend.legend(handles=handles, loc="upper left", fontsize=px_to_pt(_VIZ.presentation.subtitle_fontsize_px - 1, _VIZ.presentation.preview_dpi),
-                      frameon=False, title="Legend", title_fontsize=px_to_pt(_VIZ.presentation.subtitle_fontsize_px, _VIZ.presentation.preview_dpi))
 
     return fig
 
@@ -301,4 +371,206 @@ def save_presentation_png(
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_path, dpi=dpi)
     plt.close(fig)
+    return out_path
+
+
+def _panel_pixel_extents(fig, panels: dict[str, object]) -> tuple[dict, tuple[int, int]]:
+    """px0/px1/py0/py1 in screen pixels, x0/x1/y0/y1 in data units, for
+    however many named panels are passed in -- here, all five
+    presentation panels."""
+    fig.canvas.draw()
+    W, H = fig.canvas.get_width_height()
+    out = {}
+    for name, ax in panels.items():
+        bb = ax.get_window_extent()
+        x0, x1 = ax.get_xlim()
+        y0, y1 = ax.get_ylim()
+        out[name] = {"px0": bb.x0, "px1": bb.x1, "py0": H - bb.y1, "py1": H - bb.y0, "x0": x0, "x1": x1, "y0": y0, "y1": y1}
+    return out, (W, H)
+
+
+FRAMES_SCHEMA_VERSION_V3 = 3  # v1/v2 described the retired 3-panel
+# (GF/FF/site) layout at a fixed 1760x990 canvas. v3 adds a
+# "layout" block (one pixel+data extent per presentation panel: the bottom
+# floor, the top floor, the site map, the status panel, the legend) and the
+# real canvas "size" for whichever resolution ("preview"/"pitch") this file
+# was rendered at, so a player can place/scale agents without a hardcoded
+# 1760x990 and can draw the two new chrome panels (status, legend) if it
+# wants to, instead of only ever knowing about three map panels. Every v1/v2
+# field (x/y/c, exits, body_classes, agent_body_class, summary, ...) is kept
+# as-is for a player that only ever reads those.
+
+
+def write_presentation_video_and_frames(
+    world: EvacuationWorld, agents: list[Agent], res: SimResult, *, scenario_title: str, subtitle: str,
+    profile: str, seed: int, out_dir: str | Path, resolution: str = "preview",
+    ffmpeg_exe: str | None = None, hazard_seed: int | None = None,
+) -> tuple[Path, Path, Path]:
+    """Renders one `simulate()` run to an MP4 in the presentation layout
+    (title card, pause-and-banner on first discovery, end hold -- the
+    timing constants and the state/knowledge-to-colour mapping live in
+    `dms/viz/evacuation_video.py`, shared rather than redefined here)
+    plus a background PNG and a schema-v3 `frames.json`. `resolution` is
+    "preview" (1920x1080) or "pitch" (3840x2160) -- see configs/viz.yaml
+    `presentation.resolutions`."""
+    from matplotlib.animation import FFMpegWriter
+
+    from .evacuation_video import DISCOVERY_PAUSE_S, END_HOLD_S, FPS, TITLE_CARD_S
+
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    n = len(agents)
+    scen = world.scenario
+    dpi = _VIZ.presentation.preview_dpi if resolution == "preview" else _VIZ.presentation.pitch_dpi
+
+    panels = _build_presentation_panels(
+        world, agents, scenario_title=scenario_title, profile=profile, seed=seed,
+        hazard_seed=hazard_seed, resolution=resolution,
+    )
+    fig = panels.fig
+    fig.set_dpi(dpi)  # the figure's own stored dpi defaults to rcParams'
+    # 100, not this resolution's actual render dpi -- must be set explicitly
+    # before _panel_pixel_extents() below measures the canvas, or the
+    # exported pixel extents/canvas size silently describe a 1600x900 (or
+    # 3200x1800) image instead of the real 1920x1080 (or 3840x2160) one.
+    fig.text(0.03, _TITLE_Y0 + 0.012, subtitle, fontsize=panels.fontsize_sub, color="#444", va="center")
+    clock_text = fig.text(0.99, _TITLE_Y0 + 0.012, "", fontsize=panels.fontsize_clock, fontweight="bold",
+                           ha="right", va="center", family="monospace")
+    banner_text = fig.text(0.51, _MAIN_Y0 + _MAIN_H + 0.012, "", fontsize=panels.fontsize_title * 0.7,
+                            fontweight="bold", ha="center", va="center", color="white",
+                            bbox={"boxstyle": "round,pad=0.5", "fc": "#C0392B", "ec": "none"}, zorder=30)
+    banner_text.set_visible(False)
+
+    panels.ax_status.axis("off")
+    panels.ax_status.set_title(
+        "Status", fontsize=px_to_pt(_VIZ.presentation.subtitle_fontsize_px + 2, _VIZ.presentation.preview_dpi),
+        fontweight="bold", loc="left",
+    )
+    status_text = panels.ax_status.text(
+        0.0, 0.95, "", transform=panels.ax_status.transAxes,
+        fontsize=px_to_pt(_VIZ.presentation.subtitle_fontsize_px - 1, _VIZ.presentation.preview_dpi),
+        va="top", family="monospace", linespacing=1.4,
+    )
+
+    panel_px, canvas_size = _panel_pixel_extents(
+        fig, {"bottom": panels.ax_bottom, "top": panels.ax_top, "site": panels.ax_site,
+              "status": panels.ax_status, "legend": panels.ax_legend},
+    )
+
+    bg_path = out_dir / f"{scen}_bg_{resolution}.png"
+    fig.savefig(bg_path, dpi=dpi)
+
+    if ffmpeg_exe is not None:
+        matplotlib.rcParams["animation.ffmpeg_path"] = ffmpeg_exe
+    writer = FFMpegWriter(fps=FPS, bitrate=6000 if resolution == "pitch" else 3500, codec="libx264",
+                           extra_args=["-pix_fmt", "yuv420p", "-preset", "medium"])
+    mp4_path = out_dir / f"evac_{scen}_{profile}_{n}agents_{resolution}.mp4"
+    frames = res.frames
+    disc_t = res.events[0]["t"] if res.events else None
+
+    agent_patches: dict = {fidx: [] for fidx in panels.panel_of}
+
+    def _update(fr) -> None:
+        nonlocal agent_patches
+        agent_patches = _draw_agents_at_frame(panels, fr, remove_previous=agent_patches)
+        snap = build_status_snapshot(world, agents, res, fr.t)
+        mm, ss = divmod(int(snap.t), 60)
+        clock_text.set_text(f"t = {mm:02d}:{ss:02d}  ({snap.t:5.1f} s)")
+        status_text.set_text("\n".join(status_lines(snap)))
+
+    with writer.saving(fig, mp4_path, dpi=dpi):
+        _update(frames[0])
+        banner_text.set_text(f"{scenario_title}: {n} people, alarm at t = 0 s")
+        banner_text.set_visible(True)
+        for _ in range(int(TITLE_CARD_S * FPS)):
+            writer.grab_frame()
+        banner_text.set_visible(False)
+
+        paused = False
+        for fr in frames:
+            _update(fr)
+            if disc_t is not None and not paused and fr.t >= disc_t:
+                paused = True
+                exit_id = res.events[0]["exit"]
+                banner_text.set_text(f"Exit {exit_id} found BLOCKED on arrival  ->  agents pause, then re-route")
+                banner_text.set_visible(True)
+                for _ in range(int(DISCOVERY_PAUSE_S * FPS)):
+                    writer.grab_frame()
+                banner_text.set_visible(False)
+            writer.grab_frame()
+
+        banner_text.set_text(f"All {n} people at assembly points  -  t = {frames[-1].t:.0f} s")
+        banner_text.set_visible(True)
+        for _ in range(int(END_HOLD_S * FPS)):
+            writer.grab_frame()
+    plt.close(fig)
+
+    frames_path = out_dir / f"{scen}_frames_{resolution}.json"
+    _export_presentation_frames_json(
+        world, agents, res, panel_px=panel_px, canvas_size=canvas_size, resolution=resolution,
+        scenario_title=scenario_title, subtitle=subtitle, profile=profile, seed=seed, out_path=frames_path,
+    )
+    return mp4_path, bg_path, frames_path
+
+
+def _export_presentation_frames_json(
+    world: EvacuationWorld, agents: list[Agent], res: SimResult, *, panel_px: dict, canvas_size: tuple[int, int],
+    resolution: str, scenario_title: str, subtitle: str, profile: str, seed: int, out_path: Path,
+) -> Path:
+    """Schema v3 -- every v1/v2 field kept as-is, plus a `layout` block
+    (one pixel+data extent per presentation
+    panel) and the real `size` for this resolution, so a player can place
+    true-body-size agents on the new 5-panel canvas without a hardcoded
+    1760x990."""
+    import base64
+    import json
+
+    from .evacuation_video import VIDEO_DT_S
+
+    frames = res.frames
+    n = len(agents)
+    F = len(frames)
+    xs = np.zeros((F, n), dtype=np.int16)
+    ys = np.zeros((F, n), dtype=np.int16)
+    code = np.zeros((F, n), dtype=np.uint8)
+    for i, fr in enumerate(frames):
+        xs[i] = np.round(fr.pos[:, 0] * 10).astype(np.int16)
+        ys[i] = np.round(fr.pos[:, 1] * 10).astype(np.int16)
+        code[i] = (fr.floor.astype(np.uint8) << 4) | fr.state.astype(np.uint8) | (fr.know.astype(np.uint8) << 3)
+
+    body_class_ids = sorted({a.body_class for a in agents}) or ["standard"]
+    body_class_table = [
+        {"id": bcid, "shoulder_width_m": world.agent_defaults.body_classes[bcid].shoulder_width_m}
+        for bcid in body_class_ids
+    ]
+    bc_index = {bcid: i for i, bcid in enumerate(body_class_ids)}
+    agent_body_class = [bc_index[a.body_class] for a in agents]
+
+    ex_names = [e.id for e in world.exits]
+    pack = {
+        "schema_version": FRAMES_SCHEMA_VERSION_V3,
+        "scenario": world.scenario, "title": scenario_title, "subtitle": subtitle, "profile": profile,
+        "seed": seed, "n": n, "dt": VIDEO_DT_S, "resolution": resolution,
+        "times": [fr.t for fr in frames],
+        "canvas": {"width_px": canvas_size[0], "height_px": canvas_size[1]},
+        "layout": panel_px,  # panel name -> {px0,px1,py0,py1,x0,x1,y0,y1} -- NOT the same
+        # panel-naming convention as v1/v2's "axes" (those keyed by floor id; this layout has
+        # 5 roles -- bottom/top/site/status/legend -- not 1:1 with v1/v2's 3 floor-id keys), so
+        # a v1/v2-only reader should not expect "layout" to look like its old "axes" block.
+        "size": list(canvas_size),  # same [width, height] shape v1/v2 readers already expect
+        "exits": ex_names, "exit_used": res.exit_used.tolist(),
+        "t_exit": [None if np.isnan(v) else round(float(v), 1) for v in res.t_exit],
+        "ap_used": res.ap_used.tolist(), "aps": world.ap_ids,
+        "events": res.events,
+        "body_classes": body_class_table, "agent_body_class": agent_body_class,
+        "x": base64.b64encode(xs.tobytes()).decode(),
+        "y": base64.b64encode(ys.tobytes()).decode(),
+        "c": base64.b64encode(code.tobytes()).decode(),
+    }
+    from ..scenario.evacuation import summarize
+
+    pack["summary"] = summarize(world, agents, res)
+    out_path = Path(out_path)
+    with out_path.open("w", encoding="utf-8") as f:
+        json.dump(pack, f)
     return out_path
