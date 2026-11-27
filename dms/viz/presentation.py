@@ -375,10 +375,9 @@ def save_presentation_png(
 
 
 def _panel_pixel_extents(fig, panels: dict[str, object]) -> tuple[dict, tuple[int, int]]:
-    """Same shape evacuation_video.py's `_axes_pixel_extents` already
-    produces (px0/px1/py0/py1 in screen pixels, x0/x1/y0/y1 in data
-    units), generalized to however many named panels are passed in --
-    here, all five presentation panels, not just the three legacy ones."""
+    """px0/px1/py0/py1 in screen pixels, x0/x1/y0/y1 in data units, for
+    however many named panels are passed in -- here, all five
+    presentation panels."""
     fig.canvas.draw()
     W, H = fig.canvas.get_width_height()
     out = {}
@@ -390,8 +389,8 @@ def _panel_pixel_extents(fig, panels: dict[str, object]) -> tuple[dict, tuple[in
     return out, (W, H)
 
 
-FRAMES_SCHEMA_VERSION_V3 = 3  # v1/v2 (dms/viz/evacuation_video.py) describe the
-# legacy 3-panel (GF/FF/site) layout at a fixed 1760x990 canvas. v3 adds a
+FRAMES_SCHEMA_VERSION_V3 = 3  # v1/v2 described the retired 3-panel
+# (GF/FF/site) layout at a fixed 1760x990 canvas. v3 adds a
 # "layout" block (one pixel+data extent per presentation panel: the bottom
 # floor, the top floor, the site map, the status panel, the legend) and the
 # real canvas "size" for whichever resolution ("preview"/"pitch") this file
@@ -408,12 +407,12 @@ def write_presentation_video_and_frames(
     ffmpeg_exe: str | None = None, hazard_seed: int | None = None,
 ) -> tuple[Path, Path, Path]:
     """Renders one `simulate()` run to an MP4 in the presentation layout
-    (title card, pause-and-banner on first discovery, end hold -- same
-    semantics as the legacy `evacuation_video.write_video_and_frames`,
-    reusing its timing constants and agent-colour function directly rather
-    than redefining them) plus a background PNG and a schema-v3
-    `frames.json`. `resolution` is "preview" (1920x1080) or "pitch"
-    (3840x2160) -- see configs/viz.yaml `presentation.resolutions`."""
+    (title card, pause-and-banner on first discovery, end hold -- the
+    timing constants and the state/knowledge-to-colour mapping live in
+    `dms/viz/evacuation_video.py`, shared rather than redefined here)
+    plus a background PNG and a schema-v3 `frames.json`. `resolution` is
+    "preview" (1920x1080) or "pitch" (3840x2160) -- see configs/viz.yaml
+    `presentation.resolutions`."""
     from matplotlib.animation import FFMpegWriter
 
     from .evacuation_video import DISCOVERY_PAUSE_S, END_HOLD_S, FPS, TITLE_CARD_S
@@ -518,8 +517,8 @@ def _export_presentation_frames_json(
     world: EvacuationWorld, agents: list[Agent], res: SimResult, *, panel_px: dict, canvas_size: tuple[int, int],
     resolution: str, scenario_title: str, subtitle: str, profile: str, seed: int, out_path: Path,
 ) -> Path:
-    """Schema v3 -- every v1/v2 field (dms/viz/evacuation_video.py) kept
-    as-is, plus a `layout` block (one pixel+data extent per presentation
+    """Schema v3 -- every v1/v2 field kept as-is, plus a `layout` block
+    (one pixel+data extent per presentation
     panel) and the real `size` for this resolution, so a player can place
     true-body-size agents on the new 5-panel canvas without a hardcoded
     1760x990."""
